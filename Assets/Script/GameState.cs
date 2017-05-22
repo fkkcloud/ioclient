@@ -13,15 +13,41 @@ public class GameState : IOGameBehaviour {
 	[HideInInspector]
 	public List<Player> Players = new List<Player>();
 
+	public bool IsServerLocal = true;
+
+	float pingtime = 0f;
+	float pongtime = 0f;
+	bool pingdone = false;
+
 	// Use this for initialization
 	void Start () {
-		SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
+		//SocketIOComp.url = IsServerLocal ? "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket" : "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
+		SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
 
 		SocketIOComp.Connect ();
 
 		StartCoroutine (InitConnection ());
+
+		//ping
+		StartCoroutine (PingUpdate());
 	}
+	IEnumerator PingUpdate()
+	{
+		SocketIOComp.Emit ("SERVER:PING");
+		pingtime = Time.timeSinceLevelLoad;
+
+		yield return new WaitForSeconds (1f);
+
+		if (pingdone)
+		{
+			pongtime = pongtime * 1000f;
+			Debug.Log (pongtime);
+			pingdone = false;
+		}
+		StartCoroutine (PingUpdate ());
+	}
+
 
 	IEnumerator InitConnection(){
 		InitCallbacks ();
@@ -34,6 +60,8 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void InitCallbacks(){
+		SocketIOComp.On ("CLIENT:PING", OnPing);
+
 		SocketIOComp.On ("CLIENT:JOINED", OnUserJoined);
 
 		SocketIOComp.On ("CLIENT:CREATE_OTHER", OnOtherUserCreated);
@@ -41,6 +69,11 @@ public class GameState : IOGameBehaviour {
 		SocketIOComp.On ("CLIENT:UPDATE:POSITION", OnUserMove);
 
 		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
+	}
+
+	void OnPing(SocketIOEvent evt){ 
+		pongtime = Mathf.Abs(Time.timeSinceLevelLoad - pingtime);
+		pingdone = true;
 	}
 
 	// Update is called once per frame
