@@ -33,13 +33,13 @@ public class PlayerController : IOGameBehaviour {
 			if (x == 0f && z == 0f)
 				return;
 
-			Vector3 newPosition = PlayerObject.gameObject.transform.position + new Vector3(x * Time.deltaTime * 16f, 0f, z * Time.deltaTime * 16f);
+			Vector3 newPosition = PlayerObject.gameObject.transform.position + new Vector3(x * Time.deltaTime * 4f, 0f, z * Time.deltaTime * 4f);
 			PlayerObject.gameObject.transform.position = newPosition;
 
 			Dictionary<string, string> data = new Dictionary<string, string> ();
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
 
-			Debug.Log ("Attempting move:" + data["position"]);
+			//Debug.Log ("Attempting move:" + data["position"]);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));
 		}
 

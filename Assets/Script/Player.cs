@@ -7,18 +7,24 @@ public class Player : IOGameBehaviour {
 	[HideInInspector]
 	public string id;
 
-	[HideInInspector]
-	public Vector3 targetPosition;
+	public Vector3 simulatedStartPos;
 
 	[HideInInspector]
-	public float animationTime = 1f;
+	public Vector3 simulatedEndPos;
+
+	[HideInInspector]
+	public float simulationTimer = 1f;
 
 	[HideInInspector]
 	public bool IsSimulated;
 
+	public float simulationDamp = 2.2f;
+
 
 	// Use this for initialization
 	void Start () {
+		if (IsSimulated)
+			simulatedEndPos = transform.position; // simulated transform position is always trying to set to simulatedEndPos
 	}
 	
 	// Update is called once per frame
@@ -27,12 +33,12 @@ public class Player : IOGameBehaviour {
 		if (!IsSimulated)
 			return;
 		
-		transform.position = targetPosition;
-		return;
+		//transform.position = simulatedEndPos;
+		//return;
 
-		while (animationTime <= 1f) {
-			transform.position = Vector3.Lerp (transform.position, targetPosition, animationTime);
-			animationTime += Time.deltaTime * 2.2f;
+		while (simulationTimer <= 1f) {
+			transform.position = Vector3.Lerp (simulatedStartPos, simulatedEndPos, simulationTimer);
+			simulationTimer += Time.deltaTime * simulationDamp;
 		}
 	}
 }

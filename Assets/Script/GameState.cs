@@ -103,7 +103,7 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void OnUserMove(SocketIOEvent evt){
-		Debug.Log ("Moved data " + evt.data);
+		//Debug.Log ("Moved data " + evt.data);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
@@ -137,8 +137,9 @@ public class GameState : IOGameBehaviour {
 
 	private void MoveUser(string id, Vector3 position){
 		Player playerComp = FindUserByID (id);
-		playerComp.targetPosition = position;
-		playerComp.animationTime = 0f;
+		playerComp.simulationTimer = 0f;
+		playerComp.simulatedStartPos = playerComp.gameObject.transform.position;
+		playerComp.simulatedEndPos = position;
 	}
 
 	private Player CreateUser(SocketIOEvent evt, bool IsSimulated){
