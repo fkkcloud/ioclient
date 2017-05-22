@@ -15,6 +15,9 @@ public class GameState : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
+		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
+
 		SocketIOComp.Connect ();
 
 		StartCoroutine (InitConnection ());
@@ -68,7 +71,7 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void OnUserMove(SocketIOEvent evt){
-		Debug.Log ("Moved data " + evt.data);
+		//Debug.Log ("Moved data " + evt.data);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
@@ -78,15 +81,20 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void OnUserDisconnect(SocketIOEvent evt){
+		
 		Debug.Log ("disconnected user " + evt.data);
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
+		Debug.Log ("disconnected user id:" + id);
+
 		Player disconnectedPlayer = FindUserByID (id);
+
+		Debug.Log ("disconnected user found:" + disconnectedPlayer);
 
 		Players.Remove (disconnectedPlayer);
 
-		Destroy (disconnectedPlayer);
+		Destroy (disconnectedPlayer.gameObject);
 	}
 
 	/*

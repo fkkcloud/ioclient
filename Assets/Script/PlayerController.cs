@@ -34,7 +34,7 @@ public class PlayerController : IOGameBehaviour {
 			Vector3 newPosition = PlayerObject.gameObject.transform.position + new Vector3(x, 0f, z);
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
 
-			Debug.Log ("Attempting move:" + data);
+			//Debug.Log ("Attempting move:" + data);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));
 		}
 
