@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using SocketIO;
 using System.Text.RegularExpressions;
 
@@ -8,12 +9,12 @@ public class GameState : IOGameBehaviour {
 
 	public GameObject LoginUI;
 
+	public Text ResponseText;
+
 	public GameObject PlayerPrefab;
 
 	[HideInInspector]
 	public List<Player> Players = new List<Player>();
-
-	public bool IsServerLocal = true;
 
 	float pingtime = 0f;
 	float pongtime = 0f;
@@ -21,11 +22,9 @@ public class GameState : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		//SocketIOComp.url = IsServerLocal ? "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket" : "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
+		
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
-		SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
-
-		SocketIOComp.Connect ();
+		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
 
 		StartCoroutine (InitConnection ());
 
@@ -42,7 +41,7 @@ public class GameState : IOGameBehaviour {
 		if (pingdone)
 		{
 			pongtime = pongtime * 1000f;
-			Debug.Log (pongtime);
+			ResponseText.text = (int)pongtime + "ms";
 			pingdone = false;
 		}
 		StartCoroutine (PingUpdate ());
@@ -56,7 +55,7 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.Emit ("SERVER:CONNECT");
 
-		yield return new WaitForSeconds(0.25f);
+		//yield return new WaitForSeconds(0.25f);
 	}
 
 	private void InitCallbacks(){
@@ -66,7 +65,7 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.On ("CLIENT:CREATE_OTHER", OnOtherUserCreated);
 
-		SocketIOComp.On ("CLIENT:UPDATE:POSITION", OnUserMove);
+		SocketIOComp.On ("CLIENT:MOVE", OnUserMove);
 
 		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
 	}
@@ -92,7 +91,7 @@ public class GameState : IOGameBehaviour {
 		LoginUI.SetActive (false);
 
 		// create currentUser here
-		PlayerControllerComp.PlayerObject = CreateUser(evt);
+		PlayerControllerComp.PlayerObject = CreateUser(evt, false);
 		PlayerControllerComp.State = PlayerController.PlayerState.Joined;
 	}
 
@@ -100,11 +99,11 @@ public class GameState : IOGameBehaviour {
 		Debug.Log ("Creating other user " + evt.data);
 
 		// create otherUser here
-		CreateUser(evt);
+		CreateUser(evt, true);
 	}
 
 	private void OnUserMove(SocketIOEvent evt){
-		//Debug.Log ("Moved data " + evt.data);
+		Debug.Log ("Moved data " + evt.data);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
@@ -138,10 +137,11 @@ public class GameState : IOGameBehaviour {
 
 	private void MoveUser(string id, Vector3 position){
 		Player playerComp = FindUserByID (id);
-		playerComp.gameObject.transform.position = position;
+		playerComp.targetPosition = position;
+		playerComp.animationTime = 0f;
 	}
 
-	private Player CreateUser(SocketIOEvent evt){
+	private Player CreateUser(SocketIOEvent evt, bool IsSimulated){
 		Debug.Log ("Creating player object: " + evt);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
@@ -152,6 +152,7 @@ public class GameState : IOGameBehaviour {
 		Player playerObject = go.GetComponent<Player> ();
 
 		// set basics
+		playerObject.IsSimulated = IsSimulated;
 		playerObject.id = id;
 		go.name = name;
 		go.transform.position = pos;

@@ -25,16 +25,21 @@ public class PlayerController : IOGameBehaviour {
 	// Update is called once per frame
 	void Update () {
 
-		if (State != PlayerState.Waiting && Input.anyKey) {
+		if (State != PlayerState.Waiting) {
+			
 			float x = Input.GetAxis ("Vertical");
 			float z = Input.GetAxis ("Horizontal");
 
-			Dictionary<string, string> data = new Dictionary<string, string> ();
+			if (x == 0f && z == 0f)
+				return;
 
-			Vector3 newPosition = PlayerObject.gameObject.transform.position + new Vector3(x, 0f, z);
+			Vector3 newPosition = PlayerObject.gameObject.transform.position + new Vector3(x * Time.deltaTime * 16f, 0f, z * Time.deltaTime * 16f);
+			PlayerObject.gameObject.transform.position = newPosition;
+
+			Dictionary<string, string> data = new Dictionary<string, string> ();
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
 
-			//Debug.Log ("Attempting move:" + data);
+			Debug.Log ("Attempting move:" + data["position"]);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));
 		}
 
