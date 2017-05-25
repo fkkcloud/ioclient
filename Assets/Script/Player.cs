@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Player : IOGameBehaviour {
 
@@ -8,6 +9,9 @@ public class Player : IOGameBehaviour {
 	public string id;
 
 	public Vector3 simulatedStartPos;
+
+	public TextMesh txtUserName;
+	public TextMesh txtChatMsg;
 
 	[HideInInspector]
 	public Vector3 simulatedEndPos;

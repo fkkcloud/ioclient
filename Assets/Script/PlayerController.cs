@@ -8,6 +8,9 @@ public class PlayerController : IOGameBehaviour {
 	[HideInInspector]
 	public Player PlayerObject;
 
+	[HideInInspector]
+	public bool isOnChat = false;
+
 	public enum PlayerState
 	{
 		Waiting,
@@ -25,7 +28,7 @@ public class PlayerController : IOGameBehaviour {
 	// Update is called once per frame
 	void Update () {
 
-		if (State != PlayerState.Waiting) {
+		if (State != PlayerState.Waiting && !isOnChat) {
 			
 			float x = Input.GetAxis ("Vertical");
 			float z = Input.GetAxis ("Horizontal");

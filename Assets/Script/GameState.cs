@@ -8,8 +8,10 @@ using System.Text.RegularExpressions;
 public class GameState : IOGameBehaviour {
 
 	public GameObject LoginUI;
+	public GameObject ChatUI;
 
 	public Text ResponseText;
+	public Text ChannelText;
 
 	public GameObject PlayerPrefab;
 
@@ -22,6 +24,8 @@ public class GameState : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
+
+		ChatUI.SetActive (false);
 		
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
@@ -68,6 +72,8 @@ public class GameState : IOGameBehaviour {
 		SocketIOComp.On ("CLIENT:MOVE", OnUserMove);
 
 		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
+
+		SocketIOComp.On ("CLIENT:CHATSEND", OnChatSend);
 	}
 
 	void OnPing(SocketIOEvent evt){ 
@@ -89,10 +95,13 @@ public class GameState : IOGameBehaviour {
 	private void OnUserJoined(SocketIOEvent evt){
 		Debug.Log ("Connected server as " + evt.data);
 		LoginUI.SetActive (false);
+		ChatUI.SetActive (true);
 
 		// create currentUser here
 		PlayerControllerComp.PlayerObject = CreateUser(evt, false);
 		PlayerControllerComp.State = PlayerController.PlayerState.Joined;
+
+		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
 	}
 
 	private void OnOtherUserCreated(SocketIOEvent evt){
@@ -105,7 +114,6 @@ public class GameState : IOGameBehaviour {
 	private void OnUserMove(SocketIOEvent evt){
 		//Debug.Log ("Moved data " + evt.data);
 
-		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
@@ -127,6 +135,15 @@ public class GameState : IOGameBehaviour {
 		Players.Remove (disconnectedPlayer);
 
 		Destroy (disconnectedPlayer.gameObject);
+	}
+
+	private void OnChatSend(SocketIOEvent evt){
+
+		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+
+		Player player = FindUserByID (id);
+
+		player.txtChatMsg.text = JsonToString(evt.data.GetField("chatmsg").ToString(), "\"");
 	}
 
 	/*
@@ -155,6 +172,8 @@ public class GameState : IOGameBehaviour {
 		// set basics
 		playerObject.IsSimulated = IsSimulated;
 		playerObject.id = id;
+		playerObject.txtUserName.text = name;
+		playerObject.txtChatMsg.text = "";
 		go.name = name;
 		go.transform.position = pos;
 
