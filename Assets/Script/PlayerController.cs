@@ -13,12 +13,12 @@ public class PlayerController : IOGameBehaviour {
 
 	public enum PlayerState
 	{
-		Waiting,
+		Lobby,
 		Joined,
 		Playing
 	}
 
-	public PlayerState State = PlayerState.Waiting;
+	public PlayerState State = PlayerState.Lobby;
 
 	// Use this for initialization
 	void Start () {
@@ -28,7 +28,7 @@ public class PlayerController : IOGameBehaviour {
 	// Update is called once per frame
 	void Update () {
 
-		if (State != PlayerState.Waiting && !isOnChat) {
+		if (State != PlayerState.Lobby && !isOnChat) {
 			
 			float x = Input.GetAxis ("Vertical");
 			float z = Input.GetAxis ("Horizontal");

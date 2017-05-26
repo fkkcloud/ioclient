@@ -7,16 +7,21 @@ using System.Text.RegularExpressions;
 
 public class GameState : IOGameBehaviour {
 
-	public GameObject LoginUI;
-	public GameObject ChatUI;
+	public LoginController LoginUI;
+	public ChatUIController ChatUI;
+	public GameUIController GameUI;
+	public DialogueUIController DialogueUI;
 
 	public Text ResponseText;
 	public Text ChannelText;
 
 	public GameObject PlayerPrefab;
+	public GameObject ScenePrefab;
 
 	[HideInInspector]
 	public List<Player> Players = new List<Player>();
+	[HideInInspector]
+	public GameObject CurrentScene;
 
 	float pingtime = 0f;
 	float pongtime = 0f;
@@ -25,7 +30,10 @@ public class GameState : IOGameBehaviour {
 	// Use this for initialization
 	void Start () {
 
-		ChatUI.SetActive (false);
+		ChatUI.Hide ();
+		LoginUI.Hide ();
+		DialogueUI.Hide ();
+		GameUI.Hide ();
 		
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
@@ -35,6 +43,7 @@ public class GameState : IOGameBehaviour {
 		//ping
 		StartCoroutine (PingUpdate());
 	}
+
 	IEnumerator PingUpdate()
 	{
 		SocketIOComp.Emit ("SERVER:PING");
@@ -59,11 +68,13 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.Emit ("SERVER:CONNECT");
 
-		//yield return new WaitForSeconds(0.25f);
+		DialogueUI.Show (DialogueUIController.DialogueTypes.ConnectingServer);
 	}
 
 	private void InitCallbacks(){
 		SocketIOComp.On ("CLIENT:PING", OnPing);
+
+		SocketIOComp.On ("CLIENT:CONNECTED", OnServerConnected);
 
 		SocketIOComp.On ("CLIENT:JOINED", OnUserJoined);
 
@@ -74,6 +85,10 @@ public class GameState : IOGameBehaviour {
 		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
 
 		SocketIOComp.On ("CLIENT:CHATSEND", OnChatSend);
+
+		SocketIOComp.On ("CLIENT:ROOM_FULL", OnRoomFull);
+
+		SocketIOComp.On ("CLIENT:SERVER_FULL", OnServerFull);
 	}
 
 	void OnPing(SocketIOEvent evt){ 
@@ -92,14 +107,27 @@ public class GameState : IOGameBehaviour {
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
+	private void OnServerConnected(SocketIOEvent evt){
+		DialogueUI.Hide ();
+		LoginUI.Show ();
+	}
+
 	private void OnUserJoined(SocketIOEvent evt){
+
+		// --------- GAME BEGIN ----------
+
 		Debug.Log ("Connected server as " + evt.data);
-		LoginUI.SetActive (false);
-		ChatUI.SetActive (true);
+		GameUI.Show ();
+		DialogueUI.Hide ();
+		LoginUI.Hide ();
+		ChatUI.Show ();
 
 		// create currentUser here
 		PlayerControllerComp.PlayerObject = CreateUser(evt, false);
 		PlayerControllerComp.State = PlayerController.PlayerState.Joined;
+
+		// create temp scene
+		CreateScene();
 
 		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
 	}
@@ -126,11 +154,11 @@ public class GameState : IOGameBehaviour {
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		Debug.Log ("disconnected user id:" + id);
+		//Debug.Log ("disconnected user id:" + id);
 
 		Player disconnectedPlayer = FindUserByID (id);
 
-		Debug.Log ("disconnected user found:" + disconnectedPlayer);
+		//Debug.Log ("disconnected user found:" + disconnectedPlayer);
 
 		Players.Remove (disconnectedPlayer);
 
@@ -144,6 +172,16 @@ public class GameState : IOGameBehaviour {
 		Player player = FindUserByID (id);
 
 		player.txtChatMsg.text = JsonToString(evt.data.GetField("chatmsg").ToString(), "\"");
+	}
+
+	private void OnRoomFull(SocketIOEvent evt){
+		DialogueUI.Hide ();
+		DialogueUI.ShowWithOKBtn (DialogueUIController.DialogueTypes.RoomFull);
+	}
+
+	private void OnServerFull(SocketIOEvent evt){
+		DialogueUI.Hide ();
+		DialogueUI.ShowWithOKBtn (DialogueUIController.DialogueTypes.ServerFull);
 	}
 
 	/*
@@ -181,12 +219,25 @@ public class GameState : IOGameBehaviour {
 		return playerObject;
 	}
 
-	private Player FindUserByID(string id){
-		foreach (Player playerComp in Players){
-			if (playerComp.id == id)
-				return playerComp;
+	public void CreateScene(){
+		CurrentScene = Instantiate (ScenePrefab);
+	}
+
+	public void ClearAllPlayers(){
+		// clear all the characters
+		foreach (Player player in Players) {
+			Destroy (player.gameObject);
 		}
-		return null;
+		Players.Clear ();
+	}
+
+	public void ClearScene(){
+
+		if (CurrentScene)
+			Destroy (CurrentScene);	
+
+		ClearAllPlayers ();
+
 	}
 
 	/*
@@ -194,6 +245,14 @@ public class GameState : IOGameBehaviour {
 	UTILITY
 	----------------------------------------------------------------------------------------------------------------
 	*/
+
+	private Player FindUserByID(string id){
+		foreach (Player playerComp in Players){
+			if (playerComp.id == id)
+				return playerComp;
+		}
+		return null;
+	}
 
 	string JsonToString( string target, string s){
 

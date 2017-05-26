@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class ChatUIController : IOGameBehaviour {
+public class ChatUIController : UIController {
 
 	public Button BtnSend;
 	public InputField InputMsg;
@@ -13,6 +13,7 @@ public class ChatUIController : IOGameBehaviour {
 	void Start () {
 		BtnSend.onClick.AddListener(OnClickSendBtn);
 	}
+		
 
 	void Update(){
 		if (InputMsg.isFocused) {
