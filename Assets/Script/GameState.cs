@@ -27,6 +27,7 @@ public class GameState : IOGameBehaviour {
 
 	float pingtime = 0f;
 	float pongtime = 0f;
+	float lastpongtime = 0f;
 	bool pingdone = false;
 
 	// Use this for initialization
@@ -41,10 +42,10 @@ public class GameState : IOGameBehaviour {
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
 		InitCallbacks ();
 
-		StartCoroutine (InitConnection ());
+		StartCoroutine (Connection ());
 
 		//ping
-		StartCoroutine (PingUpdate());
+		StartCoroutine (PingUpdate ());
 	}
 
 	IEnumerator PingUpdate()
@@ -53,6 +54,18 @@ public class GameState : IOGameBehaviour {
 		pingtime = Time.timeSinceLevelLoad;
 
 		yield return new WaitForSeconds (1f);
+
+		// check server is connected
+		float lastpongduration = Mathf.Abs (Time.timeSinceLevelLoad - lastpongtime);
+		if (lastpongduration > 4f) {
+			// if server is disconnected
+			PlayerControllerComp.State = PlayerController.PlayerState.Lobby;
+			ServerConnected = false;
+			ChatUI.Hide ();
+			LoginUI.Hide ();
+			GameUI.Hide ();
+			ClearScene ();
+		}
 
 		if (pingdone)
 		{
@@ -64,16 +77,15 @@ public class GameState : IOGameBehaviour {
 	}
 
 
-	IEnumerator InitConnection(){
+	IEnumerator Connection(){
 		
 		yield return new WaitForSeconds(1f);
 
 		if (!ServerConnected) {
 			DialogueUI.Show (DialogueUIController.DialogueTypes.ConnectingServer);
 			SocketIOComp.Emit ("SERVER:CONNECT");
-
-			StartCoroutine (InitConnection ());
 		}
+		StartCoroutine (Connection ());
 	}
 
 	private void InitCallbacks(){
@@ -98,6 +110,7 @@ public class GameState : IOGameBehaviour {
 
 	void OnPing(SocketIOEvent evt){ 
 		pongtime = Mathf.Abs(Time.timeSinceLevelLoad - pingtime);
+		lastpongtime = Time.timeSinceLevelLoad;
 		pingdone = true;
 	}
 

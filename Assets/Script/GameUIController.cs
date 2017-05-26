@@ -23,7 +23,7 @@ public class GameUIController : UIController {
 		GlobalGameState.ClearScene ();
 
 		GlobalGameState.LoginUI.Show ();
-
+		GlobalGameState.ChatUI.Hide ();
 		Hide ();
 	}
 }
