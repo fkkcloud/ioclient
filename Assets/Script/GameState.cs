@@ -23,6 +23,8 @@ public class GameState : IOGameBehaviour {
 	[HideInInspector]
 	public GameObject CurrentScene;
 
+	bool ServerConnected = false;
+
 	float pingtime = 0f;
 	float pongtime = 0f;
 	bool pingdone = false;
@@ -37,6 +39,7 @@ public class GameState : IOGameBehaviour {
 		
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
+		InitCallbacks ();
 
 		StartCoroutine (InitConnection ());
 
@@ -62,13 +65,15 @@ public class GameState : IOGameBehaviour {
 
 
 	IEnumerator InitConnection(){
-		InitCallbacks ();
+		
+		yield return new WaitForSeconds(1f);
 
-		yield return new WaitForSeconds(0.125f);
+		if (!ServerConnected) {
+			DialogueUI.Show (DialogueUIController.DialogueTypes.ConnectingServer);
+			SocketIOComp.Emit ("SERVER:CONNECT");
 
-		SocketIOComp.Emit ("SERVER:CONNECT");
-
-		DialogueUI.Show (DialogueUIController.DialogueTypes.ConnectingServer);
+			StartCoroutine (InitConnection ());
+		}
 	}
 
 	private void InitCallbacks(){
@@ -108,6 +113,9 @@ public class GameState : IOGameBehaviour {
 	*/
 
 	private void OnServerConnected(SocketIOEvent evt){
+
+		ServerConnected = true;
+
 		DialogueUI.Hide ();
 		LoginUI.Show ();
 	}
