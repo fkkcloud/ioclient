@@ -38,8 +38,8 @@ public class GameState : IOGameBehaviour {
 		DialogueUI.Hide ();
 		GameUI.Hide ();
 		
-		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
-		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
+		//SocketIOComp.url = "http://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
+		//SocketIOComp.url = "http://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
 		InitCallbacks ();
 
 		StartCoroutine (Connection ());
