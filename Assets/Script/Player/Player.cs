@@ -22,7 +22,7 @@ public class Player : IOGameBehaviour {
 	[HideInInspector]
 	public bool IsSimulated;
 
-	public float simulationDamp = 2.2f;
+	public float simulationDamp = 2f;
 
 
 	// Use this for initialization
@@ -32,17 +32,20 @@ public class Player : IOGameBehaviour {
 	}
 	
 	// Update is called once per frame
-	void Update () {
+	void FixedUpdate () {
 
 		if (!IsSimulated)
 			return;
+
+		gameObject.transform.Rotate (new Vector3 (2f, 0f, 0f));
 		
 		//transform.position = simulatedEndPos;
 		//return;
 
-		while (simulationTimer <= 1f) {
-			transform.position = Vector3.Lerp (simulatedStartPos, simulatedEndPos, simulationTimer);
-			simulationTimer += Time.deltaTime * simulationDamp;
+		if (simulationTimer <= 1f) {
+			transform.position = Vector3.Lerp (transform.position, simulatedEndPos, simulationTimer);
+			//transform.position = Vector3.MoveTowards (transform.position, simulatedEndPos, simulationTimer);
+			simulationTimer += Time.fixedDeltaTime * simulationDamp;
 		}
 	}
 }
