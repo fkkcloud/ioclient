@@ -8,22 +8,22 @@ public class Player : IOGameBehaviour {
 	[HideInInspector]
 	public string id;
 
-	public Vector3 simulatedStartPos;
-
 	public TextMesh txtUserName;
 	public TextMesh txtChatMsg;
 
 	[HideInInspector]
 	public Vector3 simulatedEndPos;
+	public Quaternion simulatedEndRot;
 
 	[HideInInspector]
-	public float simulationTimer = 1f;
+	public float simulationPosTimer = 1f;
+	public float simulationRotTimer = 1f;
 
 	[HideInInspector]
 	public bool IsSimulated;
 
-	public float simulationDamp = 2f;
-
+	public float simulationPosDamp = 1.86f; // this value varies between the speed of how object moves
+	public float simulationRotDamp = 0.9f;
 
 	// Use this for initialization
 	void Start () {
@@ -37,15 +37,19 @@ public class Player : IOGameBehaviour {
 		if (!IsSimulated)
 			return;
 
-		gameObject.transform.Rotate (new Vector3 (2f, 0f, 0f));
-		
 		//transform.position = simulatedEndPos;
 		//return;
 
-		if (simulationTimer <= 1f) {
-			transform.position = Vector3.Lerp (transform.position, simulatedEndPos, simulationTimer);
-			//transform.position = Vector3.MoveTowards (transform.position, simulatedEndPos, simulationTimer);
-			simulationTimer += Time.fixedDeltaTime * simulationDamp;
+		float deltaTime = Time.fixedDeltaTime;
+
+		if (simulationPosTimer <= 1f) {
+			transform.position = Vector3.Lerp (transform.position, simulatedEndPos, simulationPosTimer);
+			simulationPosTimer += Time.fixedDeltaTime * simulationPosDamp;
+		}
+
+		if (simulationRotTimer <= 1f) {
+			transform.rotation = Quaternion.Lerp (transform.rotation, simulatedEndRot, simulationRotTimer);
+			simulationRotTimer += deltaTime * simulationRotDamp;
 		}
 	}
 }

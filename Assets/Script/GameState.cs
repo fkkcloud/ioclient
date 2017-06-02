@@ -165,9 +165,10 @@ public class GameState : IOGameBehaviour {
 		//Debug.Log ("Moved data " + evt.data);
 
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
+		Vector3 rot = StringToVecter3( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		MoveUser (id, pos);
+		MoveUser (id, pos, rot);
 	}
 
 	private void OnUserDisconnect(SocketIOEvent evt){
@@ -212,11 +213,14 @@ public class GameState : IOGameBehaviour {
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
-	private void MoveUser(string id, Vector3 position){
+	private void MoveUser(string id, Vector3 position, Vector3 rotation){
 		Player playerComp = FindUserByID (id);
-		playerComp.simulationTimer = 0f;
-		playerComp.simulatedStartPos = playerComp.gameObject.transform.position;
+
+		playerComp.simulationPosTimer = 0f;
 		playerComp.simulatedEndPos = position;
+
+		playerComp.simulationRotTimer = 0f;
+		playerComp.simulatedEndRot = Quaternion.Euler(rotation);
 	}
 
 	private Player CreateUser(SocketIOEvent evt, bool IsSimulated){

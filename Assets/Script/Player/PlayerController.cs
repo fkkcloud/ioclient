@@ -11,12 +11,6 @@ public class PlayerController : IOGameBehaviour {
 	[HideInInspector]
 	public bool isOnChat = false;
 
-	public bool flipX = false;
-	public bool flipZ = false;
-
-	float signX;
-	float signZ;
-
 	public enum PlayerState
 	{
 		Lobby,
@@ -28,8 +22,7 @@ public class PlayerController : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		signX = (flipX) ? -1f : 1f;
-		signZ = (flipZ) ? -1f : 1f;
+
 	}
 	
 	// Update is called once per frame
@@ -43,13 +36,18 @@ public class PlayerController : IOGameBehaviour {
 			if (x == 0f && z == 0f)
 				return;
 
+			GameObject playerGameObject = PlayerObject.gameObject;
 
 
-			Vector3 newPosition = PlayerObject.gameObject.transform.position + new Vector3(x * Time.deltaTime * 4f * signX, 0f, z * Time.deltaTime * 4f * signZ);
-			PlayerObject.gameObject.transform.position = newPosition;
+			Vector3 newPosition = playerGameObject.transform.position + playerGameObject.transform.forward * x * 0.086f;
+			playerGameObject.transform.position = newPosition;
+
+			Vector3 newRotation = playerGameObject.transform.rotation.eulerAngles + new Vector3 (0f, z, 0f);
+			playerGameObject.transform.rotation = Quaternion.Euler (newRotation);
 
 			Dictionary<string, string> data = new Dictionary<string, string> ();
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
+			data ["rotation"] = newRotation.x + "," + newRotation.y + "," + newRotation.z;
 
 			//Debug.Log ("Attempting move:" + data["position"]);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));
