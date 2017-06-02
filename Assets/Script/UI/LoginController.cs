@@ -40,9 +40,13 @@ public class LoginController : UIController {
 
 			/*
 				TODO: player position will be set from server-side
+				probably send spawn area from here?
 			*/
 			Vector3 position = new Vector3 (0f, 0f, 0f);
 			data ["position"] = position.x + "," + position.y + "," + position.z;
+
+			Vector3 rotation = new Vector3 (0f, 0f, 0f);
+			data ["rotation"] = rotation.x + "," + rotation.y + "," + rotation.z;
 
 			SocketIOComp.Emit ("SERVER:JOIN", new JSONObject (data));
 

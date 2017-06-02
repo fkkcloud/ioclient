@@ -49,7 +49,7 @@ public class PlayerController : IOGameBehaviour {
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
 			data ["rotation"] = newRotation.x + "," + newRotation.y + "," + newRotation.z;
 
-			//Debug.Log ("Attempting move:" + data["position"]);
+			Debug.Log ("Attempting move:" + data["rotation"]);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));
 		}
 

@@ -162,7 +162,7 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void OnUserMove(SocketIOEvent evt){
-		//Debug.Log ("Moved data " + evt.data);
+		Debug.Log ("Moved data " + evt.data);
 
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		Vector3 rot = StringToVecter3( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
