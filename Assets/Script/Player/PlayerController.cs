@@ -11,6 +11,8 @@ public class PlayerController : IOGameBehaviour {
 	[HideInInspector]
 	public bool isOnChat = false;
 
+	public VirtualJoystick Joystick;
+
 	public enum PlayerState
 	{
 		Lobby,
@@ -30,14 +32,13 @@ public class PlayerController : IOGameBehaviour {
 
 		if (State != PlayerState.Lobby && !isOnChat) {
 			
-			float x = Input.GetAxis ("Vertical");
-			float z = Input.GetAxis ("Horizontal");
+			float x = Joystick.Vertical (); //Input.GetAxis ("Vertical");
+			float z = Joystick.Horizontal();
 
 			if (x == 0f && z == 0f)
 				return;
 
 			GameObject playerGameObject = PlayerObject.gameObject;
-
 
 			Vector3 newPosition = playerGameObject.transform.position + playerGameObject.transform.forward * x * 0.086f;
 			playerGameObject.transform.position = newPosition;
@@ -49,7 +50,7 @@ public class PlayerController : IOGameBehaviour {
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
 			data ["rotation"] = newRotation.x + "," + newRotation.y + "," + newRotation.z;
 
-			Debug.Log ("Attempting move:" + data["rotation"]);
+			//Debug.Log ("Attempting move:" + data["rotation"]);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));
 		}
 
