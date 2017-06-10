@@ -4,13 +4,18 @@ using UnityEngine;
 
 public class UIController : IOGameBehaviour {
 
-	public GameObject UIObject;
+	public GameObject[] UIObjects;
 
 	public virtual void Show(){
-		UIObject.SetActive (true);
+		foreach (GameObject go in UIObjects) {
+			go.SetActive (true);
+		}
+
 	}
 
 	public virtual void Hide(){
-		UIObject.SetActive (false);
+		foreach (GameObject go in UIObjects) {
+			go.SetActive (false);
+		}
 	}
 }

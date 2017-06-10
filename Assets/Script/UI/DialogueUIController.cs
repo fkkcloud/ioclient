@@ -16,7 +16,7 @@ public class DialogueUIController : UIController {
 
 	public void Show(DialogueTypes type){
 
-		UIObject.SetActive (true);
+		Show ();
 		OKButton.gameObject.SetActive (false);
 
 		switch (type) {
@@ -40,7 +40,7 @@ public class DialogueUIController : UIController {
 
 	public void ShowWithOKBtn(DialogueTypes type){
 
-		UIObject.SetActive (true);
+		Show ();
 		OKButton.gameObject.SetActive (true);
 		
 		switch (type) {
@@ -62,9 +62,9 @@ public class DialogueUIController : UIController {
 		}
 	}
 
-	public void Hide(){
+	public override void Hide(){
 		DialogueText.text = "";
-		UIObject.SetActive (false);
+		base.Hide ();
 		OKButton.gameObject.SetActive (false);
 	}
 }
