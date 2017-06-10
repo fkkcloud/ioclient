@@ -12,6 +12,14 @@ public class PlayerController : IOGameBehaviour {
 	public bool isOnChat = false;
 
 	public VirtualJoystick Joystick;
+	public CameraJoystick Camerastick;
+
+	public float SensitivityX = 1f;
+	public float SensitivityZ = 1f;
+
+
+	public float SensitivityYaw = 20f;
+	public float SensitivityPitch = 20f;
 
 	public enum PlayerState
 	{
@@ -30,25 +38,47 @@ public class PlayerController : IOGameBehaviour {
 	// Update is called once per frame
 	void Update () {
 
+
+
 		if (State != PlayerState.Lobby && !isOnChat) {
 			
-			float x = Joystick.Vertical (); //Input.GetAxis ("Vertical");
+			float x = Joystick.Vertical ();
 			float z = Joystick.Horizontal();
 
-			if (x == 0f && z == 0f)
-				return;
+			float yaw = Camerastick.Yaw ();
+			float pitch = Camerastick.Pitch ();
+
+			//debug
+			Vector3 forward = PlayerObject.gameObject.transform.forward * 2f;
+			Debug.DrawRay(PlayerObject.gameObject.transform.position, forward, Color.green);
 
 			GameObject playerGameObject = PlayerObject.gameObject;
+			Vector3 newPosition = Vector3.zero;
 
-			Vector3 newPosition = playerGameObject.transform.position + playerGameObject.transform.forward * x * 0.086f;
-			playerGameObject.transform.position = newPosition;
+			if (x != 0f || z != 0f) {
+				// position //------------------------------------------------------------
+				newPosition = playerGameObject.transform.position
+					+ playerGameObject.transform.forward * x * SensitivityX
+					+ playerGameObject.transform.right * z * SensitivityZ;
 
-			Vector3 newRotation = playerGameObject.transform.rotation.eulerAngles + new Vector3 (0f, z, 0f);
-			playerGameObject.transform.rotation = Quaternion.Euler (newRotation);
+				playerGameObject.transform.position = newPosition;
+			}
 
+			Vector3 newBodyRotation = Vector3.zero;
+			if (yaw != 0f || pitch != 0f) {
+				// rotation //------------------------------------------------------------
+				// reminder - Euler(pitch , yaw , roll)
+				newBodyRotation = Camerastick.BaseBodyRotation + new Vector3 (0f, yaw * SensitivityYaw, 0f);
+				Vector3 newHeadRotation = Camerastick.BaseHeadLocalRotation + new Vector3 (pitch * SensitivityPitch, 0f, 0f);
+
+				playerGameObject.transform.rotation = Quaternion.Euler (newBodyRotation);
+				PlayerObject.HeadTransform.localRotation = Quaternion.Euler (newHeadRotation);
+			}
+
+			// network //------------------------------------------------------------
 			Dictionary<string, string> data = new Dictionary<string, string> ();
 			data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
-			data ["rotation"] = newRotation.x + "," + newRotation.y + "," + newRotation.z;
+			data ["rotation"] = newBodyRotation.x + "," + newBodyRotation.y + "," + newBodyRotation.z;
 
 			//Debug.Log ("Attempting move:" + data["rotation"]);
 			SocketIOComp.Emit("SERVER:MOVE", new JSONObject(data));

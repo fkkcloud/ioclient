@@ -11,6 +11,8 @@ public class Player : IOGameBehaviour {
 	public TextMesh txtUserName;
 	public TextMesh txtChatMsg;
 
+	public Transform HeadTransform;
+
 	[HideInInspector]
 	public Vector3 simulatedEndPos;
 	public Quaternion simulatedEndRot;

@@ -16,6 +16,7 @@ public class GameState : IOGameBehaviour {
 	public Text ChannelText;
 
 	public GameObject PlayerPrefab;
+	public GameObject OtherPlayerPrefab;
 	public GameObject ScenePrefab;
 
 	[HideInInspector]
@@ -230,7 +231,12 @@ public class GameState : IOGameBehaviour {
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		GameObject go = Instantiate (PlayerPrefab, pos, Quaternion.identity);
+		GameObject go;
+		if (IsSimulated)
+			go = Instantiate (OtherPlayerPrefab, pos, Quaternion.identity);
+		else
+			go = Instantiate (PlayerPrefab, pos, Quaternion.identity);
+		
 		Player playerObject = go.GetComponent<Player> ();
 
 		// set basics
