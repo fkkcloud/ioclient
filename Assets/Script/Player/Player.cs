@@ -15,11 +15,12 @@ public class Player : IOGameBehaviour {
 
 	[HideInInspector]
 	public Vector3 simulatedEndPos;
-	public Quaternion simulatedEndRot;
+	public Quaternion simulatedHeadEndLocalRot;
+	public Quaternion simulatedBodyEndRot;
 
 	[HideInInspector]
-	public float simulationPosTimer = 1f;
-	public float simulationRotTimer = 1f;
+	public float simulationPosTimer = float.MaxValue;
+	public float simulationRotTimer = float.MaxValue;
 
 	[HideInInspector]
 	public bool IsSimulated;
@@ -29,8 +30,11 @@ public class Player : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		if (IsSimulated)
+		if (IsSimulated){
 			simulatedEndPos = transform.position; // simulated transform position is always trying to set to simulatedEndPos
+			simulatedHeadEndLocalRot = HeadTransform.localRotation;
+			simulatedBodyEndRot = transform.rotation;
+		}
 	}
 	
 	// Update is called once per frame
@@ -50,7 +54,13 @@ public class Player : IOGameBehaviour {
 		}
 
 		if (simulationRotTimer <= 1f) {
-			transform.rotation = Quaternion.Lerp (transform.rotation, simulatedEndRot, simulationRotTimer);
+			// body rotation
+			transform.rotation = Quaternion.Lerp (transform.rotation, simulatedBodyEndRot, simulationRotTimer);
+
+			// head rotation
+			HeadTransform.localRotation = Quaternion.Lerp (HeadTransform.localRotation, simulatedHeadEndLocalRot, simulationRotTimer);
+
+			// i update
 			simulationRotTimer += deltaTime * simulationRotDamp;
 		}
 	}

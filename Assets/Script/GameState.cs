@@ -163,10 +163,10 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void OnUserMove(SocketIOEvent evt){
-		Debug.Log ("Moved data " + evt.data);
+		//Debug.Log ("Moved data " + evt.data);
 
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
-		Vector3 rot = StringToVecter3( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
+		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
 		MoveUser (id, pos, rot);
@@ -214,14 +214,22 @@ public class GameState : IOGameBehaviour {
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
-	private void MoveUser(string id, Vector3 position, Vector3 rotation){
+	/*
+		rotation come as Vector2 from server
+		x : pitch : head rotation
+		y : yaw   : body rotation
+		bodyRotation : Vector3 (0f, yaw * SensitivityYaw, 0f);
+		headRotation : Vector3 (pitch * SensitivityPitch, 0f, 0f);
+	*/
+	private void MoveUser(string id, Vector3 position, Vector2 rotation){
 		Player playerComp = FindUserByID (id);
 
 		playerComp.simulationPosTimer = 0f;
 		playerComp.simulatedEndPos = position;
 
 		playerComp.simulationRotTimer = 0f;
-		playerComp.simulatedEndRot = Quaternion.Euler(rotation);
+		playerComp.simulatedHeadEndLocalRot = Quaternion.Euler(new Vector3(rotation.x, 0f, 0f)); // head only pitch
+		playerComp.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
 
 	private Player CreateUser(SocketIOEvent evt, bool IsSimulated){
@@ -229,13 +237,19 @@ public class GameState : IOGameBehaviour {
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
+		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+
+		Debug.Log ("rotation from server:" + rot);
+
+		Quaternion yaw = (rot.y == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (0f, rot.y, 0f));
+		Quaternion pitch = (rot.x == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (rot.x, 0f, 0f));
 
 		GameObject go;
 		if (IsSimulated)
-			go = Instantiate (OtherPlayerPrefab, pos, Quaternion.identity);
+			go = Instantiate (OtherPlayerPrefab, pos, yaw);
 		else
-			go = Instantiate (PlayerPrefab, pos, Quaternion.identity);
+			go = Instantiate (PlayerPrefab, pos, Quaternion.identity); // here goes quaternion
 		
 		Player playerObject = go.GetComponent<Player> ();
 
@@ -244,8 +258,12 @@ public class GameState : IOGameBehaviour {
 		playerObject.id = id;
 		playerObject.txtUserName.text = name;
 		playerObject.txtChatMsg.text = "";
+
 		go.name = name;
+
 		go.transform.position = pos;
+
+		playerObject.HeadTransform.localRotation = pitch;
 
 		Players.Add (playerObject);
 		return playerObject;
@@ -299,6 +317,15 @@ public class GameState : IOGameBehaviour {
 		Vector3 newVector;
 		string[] newString = Regex.Split(target,",");
 		newVector = new Vector3( float.Parse(newString[0]), float.Parse(newString[1]), float.Parse(newString[2]));
+
+		return newVector;
+	}
+
+	Vector2 StringToVecter2(string target ){
+
+		Vector3 newVector;
+		string[] newString = Regex.Split(target,",");
+		newVector = new Vector2( float.Parse(newString[0]), float.Parse(newString[1]));
 
 		return newVector;
 	}
