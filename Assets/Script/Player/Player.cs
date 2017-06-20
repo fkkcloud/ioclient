@@ -13,6 +13,8 @@ public class Player : IOGameBehaviour {
 
 	public Transform HeadTransform;
 
+	public FirstPersonCamera PlayerFirstPersonCamera;
+
 	[HideInInspector]
 	public Vector3 simulatedEndPos;
 	public Quaternion simulatedHeadEndLocalRot;

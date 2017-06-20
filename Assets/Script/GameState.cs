@@ -7,17 +7,27 @@ using System.Text.RegularExpressions;
 
 public class GameState : IOGameBehaviour {
 
+	[Space(20)]
 	public LoginController LoginUI;
 	public ChatUIController ChatUI;
 	public GameUIController GameUI;
 	public DialogueUIController DialogueUI;
 
+	[Space(20)]
 	public Text ResponseText;
 	public Text ChannelText;
 
+	[Space(20)]
+	public ThirdPersonCamera PlayerThirdPersonCam;
+	public FirstPersonCamera PlayerFirstPersonCam;
+
+	[Space(20)]
 	public GameObject PlayerPrefab;
 	public GameObject OtherPlayerPrefab;
 	public GameObject ScenePrefab;
+
+	[Space(20)]
+	bool IsUsingThirdPersonCam;
 
 	[HideInInspector]
 	public List<Player> Players = new List<Player>();
@@ -138,7 +148,6 @@ public class GameState : IOGameBehaviour {
 	private void OnUserJoined(SocketIOEvent evt){
 
 		// --------- GAME BEGIN ----------
-
 		Debug.Log ("Connected server as " + evt.data);
 		GameUI.Show ();
 		DialogueUI.Hide ();
@@ -153,6 +162,9 @@ public class GameState : IOGameBehaviour {
 		CreateScene();
 
 		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
+
+		// Camera setup
+		SetupPlayerCamera();
 	}
 
 	private void OnOtherUserCreated(SocketIOEvent evt){
@@ -328,5 +340,32 @@ public class GameState : IOGameBehaviour {
 		newVector = new Vector2( float.Parse(newString[0]), float.Parse(newString[1]));
 
 		return newVector;
+	}
+
+	void SetupPlayerCamera(){
+		IsUsingThirdPersonCam = true;
+		PlayerThirdPersonCam.Setup ();
+		PlayerFirstPersonCam = PlayerControllerComp.PlayerObject.PlayerFirstPersonCamera;
+
+		EnablePlayerCamera ();
+	}
+
+	// debug purpose
+	public void SwitchCamera(){
+		IsUsingThirdPersonCam = !IsUsingThirdPersonCam;
+
+		EnablePlayerCamera ();
+	}
+
+	void EnablePlayerCamera(){
+
+
+		if (IsUsingThirdPersonCam) {
+			PlayerThirdPersonCam.gameObject.SetActive (true);
+			PlayerFirstPersonCam.gameObject.SetActive (false);
+		} else {
+			PlayerThirdPersonCam.gameObject.SetActive (false);
+			PlayerFirstPersonCam.gameObject.SetActive (true);
+		}
 	}
 }
