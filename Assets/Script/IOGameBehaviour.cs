@@ -29,16 +29,4 @@ public class IOGameBehaviour : MonoBehaviour
 			return _socketIO;
 		}
 	}
-
-	private PlayerController _playerControllerComp;
-	public PlayerController PlayerControllerComp
-	{
-		get
-		{
-			if (_playerControllerComp == null)
-				_playerControllerComp = FindObjectOfType<PlayerController> ();
-
-			return _playerControllerComp;
-		}
-	}
 }

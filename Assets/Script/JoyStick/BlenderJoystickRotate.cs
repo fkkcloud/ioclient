@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class VirtualJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IPointerDownHandler {
+public class BlenderJoystickRotate : MonoBehaviour, IDragHandler, IPointerUpHandler, IPointerDownHandler {
 
 	private Image bgImg;
 	private Image joystickImg;

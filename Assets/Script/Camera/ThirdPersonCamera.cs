@@ -18,9 +18,9 @@ public class ThirdPersonCamera : IOGameBehaviour {
 		
 	}
 
-	public void Setup()
+	public void Setup(GameObject target)
 	{
-		PlayerObject = PlayerControllerComp.PlayerObject.gameObject;
+		PlayerObject = target;
 		diff = transform.position - PlayerObject.transform.position;
 	}
 	

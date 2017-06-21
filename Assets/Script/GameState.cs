@@ -18,24 +18,42 @@ public class GameState : IOGameBehaviour {
 	public Text ChannelText;
 
 	[Space(20)]
-	public ThirdPersonCamera PlayerThirdPersonCam;
-	public FirstPersonCamera PlayerFirstPersonCam;
+	public GameObject FirstCam;
+	public GameObject ThirdCam;
 
 	[Space(20)]
-	public GameObject PlayerPrefab;
-	public GameObject OtherPlayerPrefab;
+	public GameObject KillerControllerPrefab;
+	public GameObject BlenderControllerPrefab;
+
+	[Space(20)]
+	public KillerJoystickCamera KillerJoystickCam;
+	public KillerJoystickMove KillerJoystickMove;
+	public BlenderJoystickRotate BlenderJoytickRotate;
+	public BlenderJoystickMove BlenderJoytickMove;
+
+	[Space(20)]
+	public GameObject KillerPrefab;
+	public GameObject BlenderPrefab;
+
+	[Space(10)]
 	public GameObject ScenePrefab;
 
-	[Space(20)]
-	bool IsUsingThirdPersonCam;
-
 	[HideInInspector]
-	public List<Player> Players = new List<Player>();
+	public List<Killer> Killers = new List<Killer>();
+	[HideInInspector]
+	public List<Blender> Blenders = new List<Blender>();
 	[HideInInspector]
 	public GameObject CurrentScene;
 
-	bool ServerConnected = false;
+	[HideInInspector]
+	public KillerController PlayerKillerController;
+	[HideInInspector]
+	public BlenderController PlayerBlenderController;
 
+	ThirdPersonCamera ThirdCamComp;
+	FirstPersonCamera FirstCamComp;
+
+	bool ServerConnected = false;
 	float pingtime = 0f;
 	float pongtime = 0f;
 	float lastpongtime = 0f;
@@ -49,9 +67,8 @@ public class GameState : IOGameBehaviour {
 		DialogueUI.Hide ();
 		GameUI.Hide ();
 
-		
-		//SocketIOComp.url = "http://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
-		//SocketIOComp.url = "http://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
+		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
+		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
 		InitCallbacks ();
 
 		StartCoroutine (Connection ());
@@ -70,13 +87,11 @@ public class GameState : IOGameBehaviour {
 		// check server is connected
 		float lastpongduration = Mathf.Abs (Time.timeSinceLevelLoad - lastpongtime);
 		if (lastpongduration > 4f) {
-			// if server is disconnected
-			PlayerControllerComp.State = PlayerController.PlayerState.Lobby;
 			ServerConnected = false;
 			ChatUI.Hide ();
 			LoginUI.Hide ();
 			GameUI.Hide ();
-			ClearScene ();
+			Disconnect ();
 		}
 
 		if (pingdone)
@@ -109,7 +124,8 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.On ("CLIENT:CREATE_OTHER", OnOtherUserCreated);
 
-		SocketIOComp.On ("CLIENT:MOVE", OnUserMove);
+		SocketIOComp.On ("CLIENT:MOVE_BLENDER", OnBlenderMove);
+		SocketIOComp.On ("CLIENT:MOVE_KILLER", OnKillerMove);
 
 		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
 
@@ -155,33 +171,84 @@ public class GameState : IOGameBehaviour {
 		ChatUI.Show ();
 
 		// create currentUser here
-		PlayerControllerComp.PlayerObject = CreateUser(evt, false);
-		PlayerControllerComp.State = PlayerController.PlayerState.Joined;
+		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		bool isSimulated = false; // this is local
+
+		if (PlayType == 0) // case blender
+		{
+			GameObject prefab = Instantiate (BlenderControllerPrefab);
+			PlayerBlenderController = prefab.GetComponent<BlenderController> ();
+			PlayerBlenderController.CharacterObject = CreateUser(evt, isSimulated, BlenderPrefab) as Blender;
+			Blenders.Add (PlayerBlenderController.CharacterObject);
+
+			// for blender 3rd person cam
+			GameObject cam = Instantiate(ThirdCam, PlayerBlenderController.CharacterObject.transform.position + ThirdCam.transform.position, ThirdCam.transform.rotation);
+			ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
+			ThirdCamComp.gameObject.SetActive(true);
+			ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
+		}
+		else // (PlayType == 1) case killer
+		{
+			GameObject prefab = Instantiate (KillerControllerPrefab);
+			PlayerKillerController = prefab.GetComponent<KillerController> ();
+			PlayerKillerController.JoystickMove = KillerJoystickMove;
+			PlayerKillerController.JoystickCam = KillerJoystickCam;
+			PlayerKillerController.CharacterObject = CreateUser(evt, isSimulated, KillerPrefab) as Killer;
+			Killers.Add (PlayerKillerController.CharacterObject);
+
+			// for killer 1st person cam
+			GameObject cam = Instantiate(FirstCam);
+			FirstCamComp = cam.GetComponent<FirstPersonCamera> ();
+			FirstCamComp.gameObject.SetActive(true);
+			FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
+
+			// enable killer control UI
+			KillerJoystickMove.gameObject.SetActive(true);
+			KillerJoystickCam.gameObject.SetActive(true);
+		}
 
 		// create temp scene
 		CreateScene();
 
 		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
-
-		// Camera setup
-		SetupPlayerCamera();
 	}
 
 	private void OnOtherUserCreated(SocketIOEvent evt){
 		Debug.Log ("Creating other user " + evt.data);
 
-		// create otherUser here
-		CreateUser(evt, true);
+		// create currentUser here
+		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+
+		bool isSimulated = true;
+
+		if (PlayType == 0) {
+			Blender blender = CreateUser (evt, isSimulated, BlenderPrefab) as Blender;
+			Blenders.Add(blender);
+		} else {
+			Killer killer = CreateUser (evt, isSimulated, KillerPrefab) as Killer;
+			Killers.Add(killer);
+		}
+
 	}
 
-	private void OnUserMove(SocketIOEvent evt){
+	private void OnBlenderMove(SocketIOEvent evt){
 		//Debug.Log ("Moved data " + evt.data);
 
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		MoveUser (id, pos, rot);
+		MoveBlender (id, pos, rot);
+	}
+
+	private void OnKillerMove(SocketIOEvent evt){
+		//Debug.Log ("Moved data " + evt.data);
+
+		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
+		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
+		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+
+		MoveKiller (id, pos, rot);
 	}
 
 	private void OnUserDisconnect(SocketIOEvent evt){
@@ -190,22 +257,14 @@ public class GameState : IOGameBehaviour {
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		//Debug.Log ("disconnected user id:" + id);
-
-		Player disconnectedPlayer = FindUserByID (id);
-
-		//Debug.Log ("disconnected user found:" + disconnectedPlayer);
-
-		Players.Remove (disconnectedPlayer);
-
-		Destroy (disconnectedPlayer.gameObject);
+		RemoveUser (id);
 	}
 
 	private void OnChatSend(SocketIOEvent evt){
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		Player player = FindUserByID (id);
+		Character player = FindUserByID (id);
 
 		player.txtChatMsg.text = JsonToString(evt.data.GetField("chatmsg").ToString(), "\"");
 	}
@@ -233,18 +292,26 @@ public class GameState : IOGameBehaviour {
 		bodyRotation : Vector3 (0f, yaw * SensitivityYaw, 0f);
 		headRotation : Vector3 (pitch * SensitivityPitch, 0f, 0f);
 	*/
-	private void MoveUser(string id, Vector3 position, Vector2 rotation){
-		Player playerComp = FindUserByID (id);
+	private void MoveKiller(string id, Vector3 position, Vector2 rotation){
+		
+		Killer killer = FindKillerByID (id);
 
-		playerComp.simulationPosTimer = 0f;
-		playerComp.simulatedEndPos = position;
+		killer.simulatedEndPos = position;
 
-		playerComp.simulationRotTimer = 0f;
-		playerComp.simulatedHeadEndLocalRot = Quaternion.Euler(new Vector3(rotation.x, 0f, 0f)); // head only pitch
-		playerComp.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
+		killer.simulatedHeadEndLocalRot = Quaternion.Euler(new Vector3(rotation.x, 0f, 0f)); // head only pitch
+		killer.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
 
-	private Player CreateUser(SocketIOEvent evt, bool IsSimulated){
+	private void MoveBlender(string id, Vector3 position, Vector2 rotation){
+
+		Blender blender = FindBlenderByID (id);
+
+		blender.simulatedEndPos = position;
+
+		blender.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
+	}
+
+	private Character CreateUser(SocketIOEvent evt, bool IsSimulated, GameObject prefab){
 		Debug.Log ("Creating player object: " + evt);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
@@ -255,15 +322,16 @@ public class GameState : IOGameBehaviour {
 		Debug.Log ("rotation from server:" + rot);
 
 		Quaternion yaw = (rot.y == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (0f, rot.y, 0f));
-		Quaternion pitch = (rot.x == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (rot.x, 0f, 0f));
+
+		//Quaternion pitch = (rot.x == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (rot.x, 0f, 0f));
 
 		GameObject go;
 		if (IsSimulated)
-			go = Instantiate (OtherPlayerPrefab, pos, yaw);
+			go = Instantiate (prefab, pos, yaw);
 		else
-			go = Instantiate (PlayerPrefab, pos, Quaternion.identity); // here goes quaternion
+			go = Instantiate (prefab, pos, Quaternion.identity);
 		
-		Player playerObject = go.GetComponent<Player> ();
+		Character playerObject = go.GetComponent<Character> ();
 
 		// set basics
 		playerObject.IsSimulated = IsSimulated;
@@ -272,12 +340,9 @@ public class GameState : IOGameBehaviour {
 		playerObject.txtChatMsg.text = "";
 
 		go.name = name;
-
 		go.transform.position = pos;
 
-		playerObject.HeadTransform.localRotation = pitch;
-
-		Players.Add (playerObject);
+		//playerObject.HeadTransform.localRotation = pitch;
 		return playerObject;
 	}
 
@@ -287,13 +352,34 @@ public class GameState : IOGameBehaviour {
 
 	public void ClearAllPlayers(){
 		// clear all the characters
-		foreach (Player player in Players) {
+		foreach (Character player in Killers) {
 			Destroy (player.gameObject);
 		}
-		Players.Clear ();
+		Killers.Clear ();
+
+		// clear all the characters
+		foreach (Character player in Blenders) {
+			Destroy (player.gameObject);
+		}
+		Blenders.Clear ();
 	}
 
-	public void ClearScene(){
+	public void Disconnect(){
+
+		if (PlayerBlenderController)
+			Destroy (PlayerBlenderController.gameObject);
+
+		if (PlayerKillerController)
+			Destroy (PlayerKillerController.gameObject);
+
+		KillerJoystickMove.gameObject.SetActive (false);
+		KillerJoystickCam.gameObject.SetActive (false);
+
+		if (ThirdCamComp)
+			Destroy (ThirdCamComp.gameObject);
+
+		if (FirstCamComp)
+			Destroy (FirstCamComp.gameObject);
 
 		if (CurrentScene)
 			Destroy (CurrentScene);	
@@ -302,19 +388,60 @@ public class GameState : IOGameBehaviour {
 
 	}
 
+	public void RemoveUser(string id){
+		Killer killer = FindKillerByID(id);
+		if (killer) {
+			Killers.Remove (killer);
+			Destroy (killer.gameObject);
+
+			Debug.Log ("removed killer:" + killer);
+			return;
+		}
+
+		Blender blender = FindBlenderByID(id);
+		if (blender) {
+			Blenders.Remove (blender);
+			Destroy (blender.gameObject);
+
+			Debug.Log ("removed blender:" + blender);
+			return;
+		}
+	}
+
 	/*
 	----------------------------------------------------------------------------------------------------------------
 	UTILITY
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
-	private Player FindUserByID(string id){
-		foreach (Player playerComp in Players){
+	private Character FindUserByID(string id){
+		foreach (Character playerComp in Killers){
+			if (playerComp.id == id)
+				return playerComp;
+		}
+		foreach (Character playerComp in Blenders){
 			if (playerComp.id == id)
 				return playerComp;
 		}
 		return null;
 	}
+
+	private Killer FindKillerByID(string id){
+		foreach (Killer playerComp in Killers){
+			if (playerComp.id == id)
+				return playerComp;
+		}
+		return null;
+	}
+
+	private Blender FindBlenderByID(string id){
+		foreach (Blender playerComp in Blenders){
+			if (playerComp.id == id)
+				return playerComp;
+		}
+		return null;
+	}
+
 
 	string JsonToString( string target, string s){
 
@@ -322,6 +449,12 @@ public class GameState : IOGameBehaviour {
 
 		return newString[1];
 
+	}
+
+	int JsonToInt(string target, string s){
+
+		string[] newString = Regex.Split(target,s);
+		return int.Parse(newString[1]);
 	}
 
 	Vector3 StringToVecter3(string target ){
@@ -342,30 +475,12 @@ public class GameState : IOGameBehaviour {
 		return newVector;
 	}
 
-	void SetupPlayerCamera(){
-		IsUsingThirdPersonCam = true;
-		PlayerThirdPersonCam.Setup ();
-		PlayerFirstPersonCam = PlayerControllerComp.PlayerObject.PlayerFirstPersonCamera;
+	public PlayerController GetPlayerController(){
+		if (PlayerKillerController)
+			return PlayerKillerController;
+		else if (PlayerBlenderController)
+			return PlayerBlenderController;
 
-		EnablePlayerCamera ();
-	}
-
-	// debug purpose
-	public void SwitchCamera(){
-		IsUsingThirdPersonCam = !IsUsingThirdPersonCam;
-
-		EnablePlayerCamera ();
-	}
-
-	void EnablePlayerCamera(){
-
-
-		if (IsUsingThirdPersonCam) {
-			PlayerThirdPersonCam.gameObject.SetActive (true);
-			PlayerFirstPersonCam.gameObject.SetActive (false);
-		} else {
-			PlayerThirdPersonCam.gameObject.SetActive (false);
-			PlayerFirstPersonCam.gameObject.SetActive (true);
-		}
+		return null;
 	}
 }

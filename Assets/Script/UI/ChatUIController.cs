@@ -16,8 +16,13 @@ public class ChatUIController : UIController {
 		
 
 	void Update(){
+
+		PlayerController pc = GlobalGameState.GetPlayerController ();
+		if (!pc)
+			return;
+
 		if (InputMsg.isFocused) {
-			PlayerControllerComp.isOnChat = true;
+			pc.isOnChat = true;
 
 			// only for window or pc
 			#if UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX
@@ -26,7 +31,7 @@ public class ChatUIController : UIController {
 			#endif
 			
 		} else {
-			PlayerControllerComp.isOnChat = false;
+			pc.isOnChat = false;
 		}
 	}
 

@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class CameraJoystick : IOGameBehaviour, IDragHandler, IPointerUpHandler, IPointerDownHandler {
+public class KillerJoystickCamera : IOGameBehaviour, IDragHandler, IPointerUpHandler, IPointerDownHandler {
 
 	private Image bgImg;
 	private Image joystickImg;
@@ -27,10 +27,11 @@ public class CameraJoystick : IOGameBehaviour, IDragHandler, IPointerUpHandler, 
 	{
 		if (!IsEnableCameraRotation)
 			return;
-		
-		if (PlayerControllerComp.PlayerObject == null)
+
+		Killer killer = GlobalGameState.PlayerKillerController.CharacterObject;
+		if (killer == null)
 			return;
-		
+
 		// check if we are hittin within the image
 		Vector2 draggedPos = Vector2.zero;
 
@@ -55,9 +56,10 @@ public class CameraJoystick : IOGameBehaviour, IDragHandler, IPointerUpHandler, 
 
 	public virtual void OnPointerDown(PointerEventData ped)
 	{
-		if (PlayerControllerComp.PlayerObject == null)
+		Killer killer = GlobalGameState.PlayerKillerController.CharacterObject;
+		if (killer == null)
 			return;
-		
+
 		Vector2 pointerDownPos = Vector2.zero;
 		if (RectTransformUtility.ScreenPointToLocalPointInRectangle (
 			bgImg.rectTransform
@@ -67,8 +69,8 @@ public class CameraJoystick : IOGameBehaviour, IDragHandler, IPointerUpHandler, 
 		{
 			BaseScreenPosition = new Vector2(pointerDownPos.x, pointerDownPos.y);
 
-			BaseHeadLocalRotation = PlayerControllerComp.PlayerObject.HeadTransform.localRotation.eulerAngles;
-			BaseBodyRotation = PlayerControllerComp.PlayerObject.gameObject.transform.rotation.eulerAngles;
+			BaseHeadLocalRotation = killer.HeadTransform.localRotation.eulerAngles;
+			BaseBodyRotation = killer.gameObject.transform.rotation.eulerAngles;
 
 			joystickImg.color = new Color (joystickImg.color.r, joystickImg.color.g, joystickImg.color.b, 0.25f);
 			//Debug.Log ("PointerDown:" + BaseScreenPosition);

@@ -17,10 +17,9 @@ public class GameUIController : UIController {
 	}
 
 	void LeaveChannel(){
-		PlayerControllerComp.State = PlayerController.PlayerState.Lobby;
 		SocketIOComp.Emit ("SERVER:LEAVE");
 
-		GlobalGameState.ClearScene ();
+		GlobalGameState.Disconnect ();
 
 		GlobalGameState.LoginUI.Show ();
 		GlobalGameState.ChatUI.Hide ();
