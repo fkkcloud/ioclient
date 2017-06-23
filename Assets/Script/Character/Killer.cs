@@ -8,9 +8,6 @@ public class Killer : Character {
 	public Transform HeadTransform;
 
 	[HideInInspector]
-	public Vector3 Velocity = Vector3.zero;
-
-	[HideInInspector]
 	public Quaternion simulatedHeadEndLocalRot;
 
 	// Use this for initialization

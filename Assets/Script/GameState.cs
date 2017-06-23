@@ -29,7 +29,7 @@ public class GameState : IOGameBehaviour {
 	public KillerJoystickCamera KillerJoystickCam;
 	public KillerJoystickMove KillerJoystickMove;
 	public BlenderJoystickRotate BlenderJoytickRotate;
-	public BlenderJoystickMove BlenderJoytickMove;
+	public BlenderJoystickWalk BlenderJoytickWalk;
 
 	[Space(20)]
 	public GameObject KillerPrefab;
@@ -124,7 +124,8 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.On ("CLIENT:CREATE_OTHER", OnOtherUserCreated);
 
-		SocketIOComp.On ("CLIENT:MOVE_BLENDER", OnBlenderMove);
+		SocketIOComp.On ("CLIENT:WALK_BLENDER", OnBlenderWalk);
+		SocketIOComp.On ("CLIENT:ROTATE_BLENDER", OnBlenderRotate);
 		SocketIOComp.On ("CLIENT:MOVE_KILLER", OnKillerMove);
 
 		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
@@ -171,13 +172,15 @@ public class GameState : IOGameBehaviour {
 		ChatUI.Show ();
 
 		// create currentUser here
-		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
 		bool isSimulated = false; // this is local
 
 		if (PlayType == 0) // case blender
 		{
 			GameObject prefab = Instantiate (BlenderControllerPrefab);
 			PlayerBlenderController = prefab.GetComponent<BlenderController> ();
+			PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
+			PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
 			PlayerBlenderController.CharacterObject = CreateUser(evt, isSimulated, BlenderPrefab) as Blender;
 			Blenders.Add (PlayerBlenderController.CharacterObject);
 
@@ -186,6 +189,10 @@ public class GameState : IOGameBehaviour {
 			ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
 			ThirdCamComp.gameObject.SetActive(true);
 			ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
+
+			// enable blender control UI
+			BlenderJoytickWalk.gameObject.SetActive(true);
+			BlenderJoytickRotate.gameObject.SetActive(true);
 		}
 		else // (PlayType == 1) case killer
 		{
@@ -202,6 +209,7 @@ public class GameState : IOGameBehaviour {
 			FirstCamComp.gameObject.SetActive(true);
 			FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
 
+
 			// enable killer control UI
 			KillerJoystickMove.gameObject.SetActive(true);
 			KillerJoystickCam.gameObject.SetActive(true);
@@ -217,7 +225,7 @@ public class GameState : IOGameBehaviour {
 		Debug.Log ("Creating other user " + evt.data);
 
 		// create currentUser here
-		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
 
 		bool isSimulated = true;
 
@@ -231,14 +239,22 @@ public class GameState : IOGameBehaviour {
 
 	}
 
-	private void OnBlenderMove(SocketIOEvent evt){
+	private void OnBlenderWalk(SocketIOEvent evt){
 		//Debug.Log ("Moved data " + evt.data);
 
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
+		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+
+		MoveBlender (id, pos);
+	}
+
+	private void OnBlenderRotate(SocketIOEvent evt){
+		//Debug.Log ("Moved data " + evt.data);
+
 		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		MoveBlender (id, pos, rot);
+		RotateBlender (id, rot);
 	}
 
 	private void OnKillerMove(SocketIOEvent evt){
@@ -302,11 +318,18 @@ public class GameState : IOGameBehaviour {
 		killer.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
 
-	private void MoveBlender(string id, Vector3 position, Vector2 rotation){
+	private void MoveBlender(string id, Vector3 position){
 
 		Blender blender = FindBlenderByID (id);
 
 		blender.simulatedEndPos = position;
+	}
+
+	private void RotateBlender(string id, Vector2 rotation){
+
+		Blender blender = FindBlenderByID (id);
+
+		Debug.Log (rotation.y + " rotate yaw from server..");
 
 		blender.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}

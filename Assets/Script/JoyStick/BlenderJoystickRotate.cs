@@ -4,71 +4,105 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class BlenderJoystickRotate : MonoBehaviour, IDragHandler, IPointerUpHandler, IPointerDownHandler {
+public class BlenderJoystickRotate : IOGameBehaviour, IDragHandler, IPointerUpHandler, IPointerDownHandler {
 
 	private Image bgImg;
 	private Image joystickImg;
-	private Vector3 inputVector;
+	private Image blenderRotateIndicator;
+
+	private float stackedYawValue = 0f;
+
+	private Vector2 DragStartPosition;
+	private Vector2 PreviousDragPosition;
+
+	[HideInInspector]
+	public Vector3 BaseBodyRotation;
+
+	Vector2 JoystickCenterPosition;
+
+	bool IsEnableCameraRotation = false;
 
 	private void Start(){
 		bgImg = GetComponent<Image> ();
 		joystickImg = transform.GetChild (0).GetComponent<Image> ();
+		blenderRotateIndicator = transform.GetChild (1).GetComponent<Image> ();
 	}
 
 	public virtual void OnDrag(PointerEventData ped)
 	{
+		if (!IsEnableCameraRotation)
+			return;
+
+		Blender blender = GlobalGameState.PlayerBlenderController.CharacterObject;
+		if (blender == null)
+			return;
+
 		// check if we are hittin within the image
-		Vector2 pos = Vector2.zero;
+		Vector2 draggedPos = Vector2.zero;
 
 		if (RectTransformUtility.ScreenPointToLocalPointInRectangle (
 			bgImg.rectTransform
 			, ped.position
 			, ped.pressEventCamera
-			, out pos)) 
+			, out draggedPos)) 
 		{
-			pos.x = (pos.x / bgImg.rectTransform.sizeDelta.x); // normalize x
-			pos.y = (pos.y / bgImg.rectTransform.sizeDelta.y); // normalize y
-
-			//Debug.Log (bgImg.rectTransform.pivot);
-
-			float x = (bgImg.rectTransform.pivot.x == 1f) ? pos.x * 2 + 1 : pos.x * 2 - 1;
-			float y = (bgImg.rectTransform.pivot.y == 1f) ? pos.y * 2 + 1 : pos.y * 2 - 1;
-
-			inputVector = new Vector3 (x, y, 0f);
-			inputVector = (inputVector.magnitude > 1f) ? inputVector.normalized : inputVector;
-
-			//Debug.Log (inputVector);
+			if (draggedPos.y > 0f)
+				stackedYawValue -= (PreviousDragPosition.x - draggedPos.x) / Screen.width;
+			else
+				stackedYawValue += (PreviousDragPosition.x - draggedPos.x) / Screen.width;
+			
+			if (draggedPos.x > 0f)
+				stackedYawValue += (PreviousDragPosition.y - draggedPos.y) / Screen.height;
+			else
+				stackedYawValue -= (PreviousDragPosition.y - draggedPos.y) / Screen.height;
 
 			// Move Joystick IMG
-			joystickImg.rectTransform.anchoredPosition = new Vector3(
-				inputVector.x * (bgImg.rectTransform.sizeDelta.x * 0.5f), 
-				inputVector.y * (bgImg.rectTransform.sizeDelta.y * 0.5f), 
-				0f);
+			joystickImg.rectTransform.anchoredPosition = draggedPos;
+
+			blenderRotateIndicator.rectTransform.rotation = Quaternion.Euler (0f, 0f, -blender.transform.rotation.eulerAngles.y);
+
+			PreviousDragPosition = draggedPos;
 		}
 	}
 
 	public virtual void OnPointerDown(PointerEventData ped)
 	{
-		OnDrag (ped);
+		Blender blender = GlobalGameState.PlayerBlenderController.CharacterObject;
+		if (blender == null)
+			return;
+
+		Vector2 pointerDownPos = Vector2.zero;
+		if (RectTransformUtility.ScreenPointToLocalPointInRectangle (
+			bgImg.rectTransform
+			, ped.position
+			, ped.pressEventCamera
+			, out pointerDownPos)) 
+		{
+			DragStartPosition = pointerDownPos;
+			BaseBodyRotation = blender.gameObject.transform.rotation.eulerAngles;
+
+			joystickImg.color = new Color (joystickImg.color.r, joystickImg.color.g, joystickImg.color.b, 0.25f);
+			//Debug.Log ("PointerDown:" + BaseScreenPosition);
+
+			IsEnableCameraRotation = true;
+
+			PreviousDragPosition = pointerDownPos;
+		}
 	}
 
 	public virtual void OnPointerUp(PointerEventData ped)
 	{
-		inputVector = Vector3.zero;
+		stackedYawValue = 0f;
+
 		joystickImg.rectTransform.anchoredPosition = Vector3.zero;
+		joystickImg.color = new Color (joystickImg.color.r, joystickImg.color.g, joystickImg.color.b, 0f);
+
+		IsEnableCameraRotation = false;
 	}
 
-	public float Horizontal(){
-		if (inputVector.x != 0f)
-			return inputVector.x;
-		else
-			return Input.GetAxis ("Horizontal"); // for PC
+	public float Yaw(){
+		return stackedYawValue;
+
 	}
 
-	public float Vertical(){
-		if (inputVector.y != 0f)
-			return inputVector.y;
-		else
-			return Input.GetAxis ("Vertical"); // for PC
-	}
 }

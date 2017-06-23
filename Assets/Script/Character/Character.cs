@@ -8,6 +8,9 @@ public class Character : IOGameBehaviour {
 	[HideInInspector]
 	public string id;
 
+	[HideInInspector]
+	public Vector3 Velocity = Vector3.zero;
+
 	public TextMesh txtUserName;
 	public TextMesh txtChatMsg;
 
@@ -20,7 +23,7 @@ public class Character : IOGameBehaviour {
 
 	// this value varies between the speed of how object moves
 	public float simulationPosDamp = 1.86f; 
-	public float simulationRotDamp = 0.9f;
+	public float simulationRotDamp = 60f;
 
 	// Use this for initialization
 	protected virtual void Start () {
