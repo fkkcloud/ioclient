@@ -7,6 +7,9 @@ using System.Text.RegularExpressions;
 
 public class GameState : IOGameBehaviour {
 
+	[HideInInspector]
+	public bool IsNPCZombieMaster = true;
+
 	[Space(20)]
 	public LoginController LoginUI;
 	public ChatUIController ChatUI;
