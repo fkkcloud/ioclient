@@ -5,6 +5,11 @@ using UnityEngine.UI;
 
 public class Blender : Character {
 
+	public Vector3 targetCharacterPosition;
+
+	public float newestElapsedTimePosition = 0f;
+	public float newestElapsedTimeRotation = 0f;
+
 	// Use this for initialization
 	protected override void Start () {
 		base.Start();
@@ -16,13 +21,17 @@ public class Blender : Character {
 	protected override void Update () {
 		base.Update ();
 
-		// position
-		transform.position = Vector3.SmoothDamp(transform.position, simulatedEndPos, ref Velocity, simulationPosDamp * Time.deltaTime);
+		if (IsSimulated) {
 
-		if (!IsSimulated)
-			return;
+			// position
+			transform.position = Vector3.SmoothDamp (transform.position, simulatedEndPos, ref Velocity, simulationPosDamp * Time.deltaTime);
 
-		// body rotation yaw
-		transform.rotation = Quaternion.RotateTowards(transform.rotation, simulatedBodyEndRot, simulationRotDamp * Time.deltaTime);
+			if (Velocity.magnitude < 0.1f) {
+				Anim.SetBool ("Walk", false);
+			}
+
+			// body rotation yaw
+			transform.rotation = Quaternion.RotateTowards (transform.rotation, simulatedBodyEndRot, simulationRotDamp * Time.deltaTime);
+		}
 	}
 }

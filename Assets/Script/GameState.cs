@@ -207,8 +207,8 @@ public class GameState : IOGameBehaviour {
 			GameObject cam = Instantiate(FirstCam);
 			FirstCamComp = cam.GetComponent<FirstPersonCamera> ();
 			FirstCamComp.gameObject.SetActive(true);
+			FirstCamComp.gameObject.transform.position = PlayerKillerController.CharacterObject.HeadTransform.position;
 			FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
-
 
 			// enable killer control UI
 			KillerJoystickMove.gameObject.SetActive(true);
@@ -231,9 +231,13 @@ public class GameState : IOGameBehaviour {
 
 		if (PlayType == 0) {
 			Blender blender = CreateUser (evt, isSimulated, BlenderPrefab) as Blender;
+			blender.Rb.isKinematic = true;
+			blender.Rb.useGravity = false;
 			Blenders.Add(blender);
 		} else {
 			Killer killer = CreateUser (evt, isSimulated, KillerPrefab) as Killer;
+			killer.Rb.isKinematic = true;
+			killer.Rb.useGravity = false;
 			Killers.Add(killer);
 		}
 
@@ -244,8 +248,9 @@ public class GameState : IOGameBehaviour {
 
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+		float elapsedTime = JsonToFloat (evt.data.GetField ("elapsedTime").ToString (), "\"");
 
-		MoveBlender (id, pos);
+		MoveBlender (id, pos, elapsedTime);
 	}
 
 	private void OnBlenderRotate(SocketIOEvent evt){
@@ -253,8 +258,9 @@ public class GameState : IOGameBehaviour {
 
 		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+		float elapsedTime = JsonToFloat (evt.data.GetField ("elapsedTime").ToString (), "\"");
 
-		RotateBlender (id, rot);
+		RotateBlender (id, rot, elapsedTime);
 	}
 
 	private void OnKillerMove(SocketIOEvent evt){
@@ -318,18 +324,25 @@ public class GameState : IOGameBehaviour {
 		killer.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
 
-	private void MoveBlender(string id, Vector3 position){
+	private void MoveBlender(string id, Vector3 position, float elapsedTime){
 
 		Blender blender = FindBlenderByID (id);
+
+		// if the data from server is older than latest applied packet then discard
+		if (elapsedTime < blender.newestElapsedTimePosition) 
+			return;
 
 		blender.simulatedEndPos = position;
+		blender.Anim.SetBool ("Walk", true);
 	}
 
-	private void RotateBlender(string id, Vector2 rotation){
+	private void RotateBlender(string id, Vector2 rotation, float elapsedTime){
 
 		Blender blender = FindBlenderByID (id);
 
-		Debug.Log (rotation.y + " rotate yaw from server..");
+		// if the data from server is older than latest applied packet then discard
+		if (elapsedTime < blender.newestElapsedTimeRotation) 
+			return;
 
 		blender.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
@@ -341,8 +354,6 @@ public class GameState : IOGameBehaviour {
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
-
-		Debug.Log ("rotation from server:" + rot);
 
 		Quaternion yaw = (rot.y == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (0f, rot.y, 0f));
 
@@ -474,9 +485,18 @@ public class GameState : IOGameBehaviour {
 
 	}
 
+	float JsonToFloat( string target, string s){
+
+		string[] newString = Regex.Split(target,s);
+
+		return float.Parse(newString[1]);
+
+	}
+
 	int JsonToInt(string target, string s){
 
 		string[] newString = Regex.Split(target,s);
+
 		return int.Parse(newString[1]);
 	}
 

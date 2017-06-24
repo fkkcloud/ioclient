@@ -11,6 +11,8 @@ public class BlenderController : PlayerController {
 	public BlenderJoystickWalk JoystickMove;
 	public BlenderJoystickRotate JoystickRotate;
 
+	float movement = 0f;
+
 	public float MoveSpeed = 1f;
 
 	public float SensitivityYaw = 20f;
@@ -26,55 +28,49 @@ public class BlenderController : PlayerController {
 
 		if (JoystickMove && JoystickRotate) 
 		{
-			float yaw = JoystickRotate.Yaw ();
-
-			bool IsDirtyPlayerRotationOnNetwork = false;
-
-			// set player game object
-
 			// rotation //------------------------------------------------------------
-			// default when there is no rotation input from player
-			Vector3 newBodyRotation = CharacterObject.transform.rotation.eulerAngles; 
-
+			float yaw = JoystickRotate.Yaw ();
 			if (yaw != 0f) {
-
+				
 				// reminder - Euler(pitch , yaw , roll)
-				newBodyRotation = JoystickRotate.BaseBodyRotation + new Vector3 (0f, yaw * SensitivityYaw, 0f);
+				Vector3 newBodyRotation = JoystickRotate.BaseBodyRotation + new Vector3 (0f, yaw * SensitivityYaw, 0f);
 
 				CharacterObject.transform.rotation = Quaternion.Euler (newBodyRotation);
 
-				IsDirtyPlayerRotationOnNetwork = true;
-			}
-
-			// network //------------------------------------------------------------
-			if (IsDirtyPlayerRotationOnNetwork) {
 				Dictionary<string, string> data = new Dictionary<string, string> ();
 				data ["rotation"] = 0 + "," + newBodyRotation.y;
+				data ["elapsedTime"] = Time.timeSinceLevelLoad.ToString();
 
 				SocketIOComp.Emit("SERVER:ROTATE_BLENDER", new JSONObject(data));
 			}
+
+			// position //------------------------------------------------------------
+			// TODO: have to get walking animation turn off for local character when they are stuck in the wall and not moving
+			if (movement > 0f) {
+				//Debug.Log (CharacterObject.transform.forward * MoveSpeed * movement * Time.deltaTime);
+				CharacterObject.Rb.MovePosition(CharacterObject.Rb.position + CharacterObject.transform.forward * MoveSpeed * movement * Time.deltaTime);
+				movement -= 1f * Time.deltaTime;
+
+				Vector3 newPosition = CharacterObject.transform.position;
+
+				Dictionary<string, string> data = new Dictionary<string, string> ();
+				data ["position"] = newPosition.x + "," + newPosition.y + "," + newPosition.z;
+				data ["elapsedTime"] = Time.timeSinceLevelLoad.ToString();
+
+				//Debug.Log ("Attempting move:" + data["rotation"]);
+				SocketIOComp.Emit ("SERVER:WALK_BLENDER", new JSONObject (data));
+			} else {
+				if (CharacterObject.Anim.GetBool("Walk") == true)
+					CharacterObject.Anim.SetBool ("Walk", false);
+			}
+
 		}
 	}
 
 	public void Move(){
 		
-		// set player game object
-		GameObject playerGameObject = CharacterObject.gameObject;
+		movement = 2f;
 
-		// position //------------------------------------------------------------
-		// default when there is no position input from player
-		Vector3 newPosition = playerGameObject.transform.position + playerGameObject.transform.forward * MoveSpeed;
-		
-		CharacterObject.simulatedEndPos = newPosition;
-
-
-		Dictionary<string, string> data = new Dictionary<string, string> ();
-		data ["position"] = newPosition.x     + "," + newPosition.y      + "," + newPosition.z;
-
-		//Debug.Log ("Attempting move:" + data["rotation"]);
-		SocketIOComp.Emit("SERVER:WALK_BLENDER", new JSONObject(data));
-
+		CharacterObject.Anim.SetBool ("Walk", true);
 	}
-	
-
 }

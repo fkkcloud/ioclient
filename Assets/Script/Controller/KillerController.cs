@@ -53,7 +53,8 @@ public class KillerController : PlayerController {
 					+ playerGameObject.transform.forward * x * SensitivityX
 					+ playerGameObject.transform.right * z * SensitivityZ;
 
-				playerGameObject.transform.position = newPosition;
+				CharacterObject.Rb.MovePosition (newPosition);
+				//playerGameObject.transform.position = newPosition;
 				IsDirtyPlayerPositionOnNetwork = true;
 			}
 
@@ -63,7 +64,6 @@ public class KillerController : PlayerController {
 			Vector3 newHeadRotation = CharacterObject.HeadTransform.localRotation.eulerAngles;
 
 			if (yaw != 0f || pitch != 0f) {
-				
 				// reminder - Euler(pitch , yaw , roll)
 				newBodyRotation = JoystickCam.BaseBodyRotation + new Vector3 (0f, yaw * SensitivityYaw, 0f);
 				newHeadRotation = JoystickCam.BaseHeadLocalRotation + new Vector3 (pitch * SensitivityPitch, 0f, 0f);

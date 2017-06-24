@@ -5,6 +5,9 @@ using UnityEngine.UI;
 
 public class Character : IOGameBehaviour {
 
+	public Animator Anim;
+	public Rigidbody Rb;
+
 	[HideInInspector]
 	public string id;
 
