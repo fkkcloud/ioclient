@@ -172,7 +172,7 @@ public class GameState : IOGameBehaviour {
 		ChatUI.Show ();
 
 		// create currentUser here
-		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
 		bool isSimulated = false; // this is local
 
 		if (PlayType == 0) // case blender
@@ -225,7 +225,7 @@ public class GameState : IOGameBehaviour {
 		Debug.Log ("Creating other user " + evt.data);
 
 		// create currentUser here
-		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
 
 		bool isSimulated = true;
 
@@ -317,6 +317,8 @@ public class GameState : IOGameBehaviour {
 	private void MoveKiller(string id, Vector3 position, Vector2 rotation){
 		
 		Killer killer = FindKillerByID (id);
+
+		Debug.Log ("vector length diff:" + Mathf.Abs((killer.transform.position - position).magnitude));
 
 		killer.simulatedEndPos = position;
 

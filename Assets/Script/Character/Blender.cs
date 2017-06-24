@@ -5,9 +5,12 @@ using UnityEngine.UI;
 
 public class Blender : Character {
 
+	[HideInInspector]
 	public Vector3 targetCharacterPosition;
 
+	[HideInInspector]
 	public float newestElapsedTimePosition = 0f;
+	[HideInInspector]
 	public float newestElapsedTimeRotation = 0f;
 
 	// Use this for initialization
@@ -23,15 +26,18 @@ public class Blender : Character {
 
 		if (IsSimulated) {
 
-			// position
-			transform.position = Vector3.SmoothDamp (transform.position, simulatedEndPos, ref Velocity, simulationPosDamp * Time.deltaTime);
+			float diffScaled = Mathf.InverseLerp (clientServerDistDiffMin, clientServerDistDiffMax, clientServerDistDiff);
+			float simulationPosDuration = Mathf.Lerp (simulationPosDurationMin, simulationPosDurationMax, diffScaled);
 
-			if (Velocity.magnitude < 0.1f) {
+			// position
+			transform.position = Vector3.SmoothDamp (transform.position, simulatedEndPos, ref Velocity, simulationPosDuration * Time.deltaTime);
+
+			if (Velocity.magnitude < 0.05f) {
 				Anim.SetBool ("Walk", false);
 			}
 
 			// body rotation yaw
-			transform.rotation = Quaternion.RotateTowards (transform.rotation, simulatedBodyEndRot, simulationRotDamp * Time.deltaTime);
+			transform.rotation = Quaternion.RotateTowards (transform.rotation, simulatedBodyEndRot, simulationRotDuration * Time.deltaTime);
 		}
 	}
 }

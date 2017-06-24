@@ -14,19 +14,28 @@ public class Character : IOGameBehaviour {
 	[HideInInspector]
 	public Vector3 Velocity = Vector3.zero;
 
+	[HideInInspector]
+	public float clientServerDistDiff = 0f;
+
 	public TextMesh txtUserName;
 	public TextMesh txtChatMsg;
 
 	[HideInInspector]
 	public Vector3 simulatedEndPos;
+	[HideInInspector]
 	public Quaternion simulatedBodyEndRot;
 
 	[HideInInspector]
 	public bool IsSimulated;
 
 	// this value varies between the speed of how object moves
-	public float simulationPosDamp = 1.86f; 
-	public float simulationRotDamp = 60f;
+	public float clientServerDistDiffMin = 1.6f;
+	public float clientServerDistDiffMax = 2.4f;
+	public float simulationPosDurationMin = 1.86f; 
+	public float simulationPosDurationMax = 2.86f; 
+
+	public float simulationRotDuration = 60f;
+
 
 	// Use this for initialization
 	protected virtual void Start () {

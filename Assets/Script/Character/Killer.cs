@@ -23,13 +23,16 @@ public class Killer : Character {
 		if (!IsSimulated)
 			return;
 
+		float diffScaled = Mathf.InverseLerp (clientServerDistDiffMin, clientServerDistDiffMax, clientServerDistDiff);
+		float simulationPosDuration = Mathf.Lerp (simulationPosDurationMin, simulationPosDurationMax, diffScaled);
+
 		// position
-		transform.position = Vector3.SmoothDamp(transform.position, simulatedEndPos, ref Velocity, simulationPosDamp * Time.deltaTime);
+		transform.position = Vector3.SmoothDamp(transform.position, simulatedEndPos, ref Velocity, simulationPosDuration * Time.deltaTime);
 		
 		// body rotation yaw
-		transform.rotation = Quaternion.RotateTowards(transform.rotation, simulatedBodyEndRot, simulationRotDamp * Time.deltaTime);
+		transform.rotation = Quaternion.RotateTowards(transform.rotation, simulatedBodyEndRot, simulationRotDuration * Time.deltaTime);
 
 		// head rotation pitch
-		HeadTransform.localRotation = Quaternion.RotateTowards(HeadTransform.localRotation, simulatedHeadEndLocalRot, simulationRotDamp * Time.deltaTime);
+		HeadTransform.localRotation = Quaternion.RotateTowards(HeadTransform.localRotation, simulatedHeadEndLocalRot, simulationRotDuration * Time.deltaTime);
 	}
 }
