@@ -17,7 +17,6 @@ public class BlenderNPCController : IOGameBehaviour {
 
 	public BlenderState CurrentBlenderState = BlenderState.Born;
 
-
 	/*
 	 * TODO:
 		1. when player get pushed from these AI, it also should update to server for broadcast!!

@@ -175,7 +175,7 @@ public class GameState : IOGameBehaviour {
 		ChatUI.Show ();
 
 		// create currentUser here
-		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
 		bool isSimulated = false; // this is local
 
 		if (PlayType == 0) // case blender
@@ -228,7 +228,7 @@ public class GameState : IOGameBehaviour {
 		Debug.Log ("Creating other user " + evt.data);
 
 		// create currentUser here
-		int PlayType = 1;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
 
 		bool isSimulated = true;
 
