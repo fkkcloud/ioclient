@@ -32,8 +32,10 @@ public class Blender : Character {
 			// position
 			transform.position = Vector3.SmoothDamp (transform.position, simulatedEndPos, ref Velocity, simulationPosDuration * Time.deltaTime);
 
-			if (Velocity.magnitude < 0.05f) {
-				Anim.SetBool ("Walk", false);
+			if (Velocity.magnitude < 0.1f) {
+				if (Anim.GetBool("Walk") == true) Anim.SetBool ("Walk", false);
+			} else {
+				if (Anim.GetBool("Walk") == false) Anim.SetBool ("Walk", true);
 			}
 
 			// body rotation yaw

@@ -29,4 +29,16 @@ public class IOGameBehaviour : MonoBehaviour
 			return _socketIO;
 		}
 	}
+
+	private MapManager _mapManager;
+	public MapManager GlobalMapManager
+	{
+		get
+		{
+			if (_mapManager == null)
+				_mapManager = FindObjectOfType<MapManager> ();
+
+			return _mapManager;
+		}
+	}
 }

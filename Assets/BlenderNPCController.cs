@@ -2,20 +2,36 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using SocketIO;
+
+/*
+	walking ( ) 
+	— 스테이트 체인지 를 알리고, 계속 걷는거 sync
+	resting ( ) 
+	— 스테이트 체인지를 알리고, no position sync
+	attacking - 이 걸렸을때는 다음 스테이트 시동 걸지말고,  attacking state에서 애니메이션이 끝나면 걸어 줘야 한다.
+	— 스테이트 체인지를 알리고, no position sync
+	rotating - ( )
+	— 스테이트 체인지를 알리고, no position sync
+	died - 다음 스테이트 걸지 않는다. - (터져버리는 애니메이션)
+	— 이경우만 모든 다른 클라이언트에서 다른 클라이언트로 전달할수 있다.
+	eat ing- 가끔 eat를 해줘야 한다. (  ) 이 컬렸을때는 attacking 처럼 eating 애니메이셔이 끝나면 바로 다른 랜덤 스테이트 고고
+	— 스테이트 체인지를 알리고, no position sync
+*/
 
 public class BlenderNPCController : IOGameBehaviour {
-	
+
 	[HideInInspector]
 	public NavMeshAgent navMeshAgent;
 
-	[HideInInspector]
 	public Blender blender;
 
-	public MapManager mapManager;
+	Quaternion prevRot;
 
-	public enum BlenderState {Walking, Resting, Rotating, Attacking, Dead, Born};
+	// 0:Dead, 1:Idle, 2:Walking, 3:Rotating, 4:Eating
+	public enum BlenderState {Dead, Idle, Walking, Rotating, Eating};
 
-	public BlenderState CurrentBlenderState = BlenderState.Born;
+	public BlenderState CurrentBlenderState = BlenderState.Idle;
 
 	/*
 	 * TODO:
@@ -24,12 +40,19 @@ public class BlenderNPCController : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		if (GlobalGameState.IsNPCZombieMaster)
+			Init ();
+	}
+
+	public void Init(){
+		Debug.Log (blender.id);
+
 		navMeshAgent = GetComponent<NavMeshAgent> ();
 		navMeshAgent.isStopped = true;
+		navMeshAgent.SetDestination (GlobalMapManager.GameDestination.position);
 
-		blender = GetComponent<Blender> ();
+		prevRot = gameObject.transform.rotation;
 
-		navMeshAgent.SetDestination (mapManager.GameDestination.position);
 		StartCoroutine (ChangeAction (1f));
 	}
 
@@ -37,81 +60,110 @@ public class BlenderNPCController : IOGameBehaviour {
 	{
 		yield return new WaitForSeconds(waitTime);
 
-		CurrentBlenderState = (BlenderState)Random.Range(0, 3); // inclusive | exclusive so it choose between 0, 1, 2
+		CurrentBlenderState = (BlenderState)Random.Range(1, 4); // inclusive | exclusive
 
-		Debug.Log ("Changed Action: " + CurrentBlenderState);
+		//Debug.Log ("Changed Action: " + CurrentBlenderState);
 
 		switch (CurrentBlenderState) 
 		{
 		case BlenderState.Walking:
-			StartWalking ();
+			DoWalking ();
 			break;
-		case BlenderState.Resting:
-			TakeRest ();
+		case BlenderState.Idle:
+			DoResting ();
 			break;
 		case BlenderState.Rotating:
-			ChangeRotation ();
+			DoChangeRotation ();
 			break;
-		case BlenderState.Attacking:
-			// do a attack action
-			break;
+			/*
+		case BlenderState.Eating:
+			DoEating ();
+			break;*/
 		default:
 			break;
 		}
 
-		if (CurrentBlenderState != BlenderState.Dead) 
+		if (CurrentBlenderState != BlenderState.Dead &&
+			CurrentBlenderState != BlenderState.Eating) 
 		{
 			float nextActionDue = Random.Range (1.5f, 4f);
 			StartCoroutine (ChangeAction (nextActionDue));
 		}
 	}
 
-	void StartWalking()
+	void DoWalking()
 	{
-		if (GlobalGameState.IsNPCZombieMaster) {
-			// send server info
-		}
-
 		navMeshAgent.isStopped = false;
 	}
 
-	void TakeRest(){
-		if (GlobalGameState.IsNPCZombieMaster) {
-			// send server info
-		}
+	void DoResting(){
+		
 		navMeshAgent.isStopped = true;
 	}
 
-	void ChangeRotation(){
+	void DoChangeRotation(){
 		// choose random position among the region (battle ground shrinking area)
 		float randomAngle = Random.Range(0f, 360f);
 		float randomDist = Random.Range (0f, 15f);
 
-		Vector3 blenderDestination = mapManager.GameDestination.position + new Vector3 (Mathf.Cos (randomAngle) * randomDist, 0f, Mathf.Sin (randomAngle) * randomDist);
-
-		if (GlobalGameState.IsNPCZombieMaster) {
-			// send server info
-		}
+		Vector3 blenderDestination = GlobalMapManager.GameDestination.position + new Vector3 (Mathf.Cos (randomAngle) * randomDist, 0f, Mathf.Sin (randomAngle) * randomDist);
 
 		navMeshAgent.SetDestination (blenderDestination);
+		navMeshAgent.isStopped = false;
+	}
+
+	void DoEating(){
+		StartCoroutine (EatSequence ());
+	}
+
+	IEnumerator EatSequence(){
+		blender.Anim.SetBool ("Eat", true);
+
+		float nextActionDue = Random.Range (1.5f, 4f);
+
+		StartCoroutine (ChangeAction (nextActionDue));
+
+		// start cancel eating a bit faster than ChangeAction!
+		yield return new WaitForSeconds (nextActionDue - 0.2f);
+
+		blender.Anim.SetBool ("Eat", false);
 	}
 	
 	void Update () {
 
+		/*
+		 * TODO: this should control any clients NPC's action handle. e.g. eating, attacking and stuff
+		 */
+
+		if (!GlobalGameState.IsNPCZombieMaster)
+			return;
+
 		float threshold = navMeshAgent.speed * 0.1f;
-
-
-		if (navMeshAgent.velocity.magnitude < threshold) {
+		if (navMeshAgent.velocity.magnitude < threshold) 
+		{
 			blender.Anim.SetBool ("Walk", false);
-		} else if (navMeshAgent.velocity.magnitude > threshold && blender.Anim.GetBool("Walk") == false){
+		} 
+		else if (navMeshAgent.velocity.magnitude > threshold && blender.Anim.GetBool("Walk") == false)
+		{
 			blender.Anim.SetBool ("Walk", true);
 		}
 
-
 		if (!navMeshAgent.isStopped) {
-			if (GlobalGameState.IsNPCZombieMaster) {
-				// send server info
-			}
+			Dictionary<string, string> data = new Dictionary<string, string> ();
+			data ["position"] = gameObject.transform.position.x + "," + gameObject.transform.position.y + "," + gameObject.transform.position.z;
+			data ["elapsedTime"] = Time.timeSinceLevelLoad.ToString();
+			data ["npcid"] = blender.id.ToString ();
+			SocketIOComp.Emit("SERVER:BLENDER_NPC_MOVE", new JSONObject(data));
+		}
+
+		if (prevRot != gameObject.transform.rotation) {
+			Dictionary<string, string> data = new Dictionary<string, string> ();
+			data ["rotation"] = 0 + "," + gameObject.transform.rotation.eulerAngles.y;
+			data ["elapsedTime"] = Time.timeSinceLevelLoad.ToString();
+			data ["npcid"] = blender.id.ToString ();
+			SocketIOComp.Emit("SERVER:BLENDER_NPC_ROTATE", new JSONObject(data));
+			
+			prevRot = gameObject.transform.rotation;
 		}
 	}
 }

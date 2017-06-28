@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 public class GameState : IOGameBehaviour {
 
 	[HideInInspector]
-	public bool IsNPCZombieMaster = true;
+	public bool IsNPCZombieMaster = false;
 
 	[Space(20)]
 	public LoginController LoginUI;
@@ -28,6 +28,7 @@ public class GameState : IOGameBehaviour {
 	public GameObject KillerControllerPrefab;
 	public GameObject BlenderControllerPrefab;
 
+
 	[Space(20)]
 	public KillerJoystickCamera KillerJoystickCam;
 	public KillerJoystickMove KillerJoystickMove;
@@ -37,6 +38,8 @@ public class GameState : IOGameBehaviour {
 	[Space(20)]
 	public GameObject KillerPrefab;
 	public GameObject BlenderPrefab;
+	[Space(10)]
+	public GameObject BlenderNPCPrefab;
 
 	[Space(10)]
 	public GameObject ScenePrefab;
@@ -45,6 +48,8 @@ public class GameState : IOGameBehaviour {
 	public List<Killer> Killers = new List<Killer>();
 	[HideInInspector]
 	public List<Blender> Blenders = new List<Blender>();
+	[HideInInspector]
+	public List<Blender> BlenderNPCs = new List<Blender>();
 	[HideInInspector]
 	public GameObject CurrentScene;
 
@@ -64,6 +69,10 @@ public class GameState : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
+
+		#if UNITY_STANDALONE
+		Screen.SetResolution(16 * 45, 9 * 45, false);
+		#endif
 
 		ChatUI.Hide ();
 		LoginUI.Hide ();
@@ -138,6 +147,8 @@ public class GameState : IOGameBehaviour {
 		SocketIOComp.On ("CLIENT:ROOM_FULL", OnRoomFull);
 
 		SocketIOComp.On ("CLIENT:SERVER_FULL", OnServerFull);
+
+		SocketIOComp.On ("CLIENT:BLENDER_NPC_CREATE", OnBlenderNPCCreate);
 	}
 
 	void OnPing(SocketIOEvent evt){ 
@@ -184,7 +195,7 @@ public class GameState : IOGameBehaviour {
 			PlayerBlenderController = prefab.GetComponent<BlenderController> ();
 			PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
 			PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
-			PlayerBlenderController.CharacterObject = CreateUser(evt, isSimulated, BlenderPrefab) as Blender;
+			PlayerBlenderController.CharacterObject = CreateCharacter(evt, isSimulated, BlenderPrefab) as Blender;
 			Blenders.Add (PlayerBlenderController.CharacterObject);
 
 			// for blender 3rd person cam
@@ -203,7 +214,7 @@ public class GameState : IOGameBehaviour {
 			PlayerKillerController = prefab.GetComponent<KillerController> ();
 			PlayerKillerController.JoystickMove = KillerJoystickMove;
 			PlayerKillerController.JoystickCam = KillerJoystickCam;
-			PlayerKillerController.CharacterObject = CreateUser(evt, isSimulated, KillerPrefab) as Killer;
+			PlayerKillerController.CharacterObject = CreateCharacter(evt, isSimulated, KillerPrefab) as Killer;
 			Killers.Add (PlayerKillerController.CharacterObject);
 
 			// for killer 1st person cam
@@ -233,17 +244,26 @@ public class GameState : IOGameBehaviour {
 		bool isSimulated = true;
 
 		if (PlayType == 0) {
-			Blender blender = CreateUser (evt, isSimulated, BlenderPrefab) as Blender;
+			Blender blender = CreateCharacter (evt, isSimulated, BlenderPrefab) as Blender;
 			blender.Rb.isKinematic = true;
 			blender.Rb.useGravity = false;
 			Blenders.Add(blender);
 		} else {
-			Killer killer = CreateUser (evt, isSimulated, KillerPrefab) as Killer;
+			Killer killer = CreateCharacter (evt, isSimulated, KillerPrefab) as Killer;
 			killer.Rb.isKinematic = true;
 			killer.Rb.useGravity = false;
 			Killers.Add(killer);
 		}
 
+	}
+
+	private void OnBlenderNPCCreate(SocketIOEvent evt){
+		bool isSimulated = true;
+
+		Blender blender = CreateCharacter (evt, isSimulated, BlenderNPCPrefab) as Blender;
+		blender.Rb.isKinematic = true;
+		blender.Rb.useGravity = false;
+		BlenderNPCs.Add(blender);
 	}
 
 	private void OnBlenderWalk(SocketIOEvent evt){
@@ -338,7 +358,6 @@ public class GameState : IOGameBehaviour {
 			return;
 
 		blender.simulatedEndPos = position;
-		blender.Anim.SetBool ("Walk", true);
 	}
 
 	private void RotateBlender(string id, Vector2 rotation, float elapsedTime){
@@ -352,7 +371,7 @@ public class GameState : IOGameBehaviour {
 		blender.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
 
-	private Character CreateUser(SocketIOEvent evt, bool IsSimulated, GameObject prefab){
+	private Character CreateCharacter(SocketIOEvent evt, bool IsSimulated, GameObject prefab){
 		Debug.Log ("Creating player object: " + evt);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
@@ -387,6 +406,12 @@ public class GameState : IOGameBehaviour {
 
 	public void CreateScene(){
 		CurrentScene = Instantiate (ScenePrefab);
+
+		// create NPC blenders
+		if (GlobalGameState.IsNPCZombieMaster) {
+			GlobalMapManager.CreateNPCBlenders (6);
+		}
+
 	}
 
 	public void ClearAllPlayers(){
@@ -401,6 +426,11 @@ public class GameState : IOGameBehaviour {
 			Destroy (player.gameObject);
 		}
 		Blenders.Clear ();
+
+		foreach (Blender blender in BlenderNPCs) {
+			Destroy (blender.gameObject);
+		}
+		BlenderNPCs.Clear ();
 	}
 
 	public void Disconnect(){
@@ -454,29 +484,37 @@ public class GameState : IOGameBehaviour {
 	*/
 
 	private Character FindUserByID(string id){
-		foreach (Character playerComp in Killers){
-			if (playerComp.id == id)
-				return playerComp;
+		foreach (Character killer in Killers){
+			if (killer.id == id)
+				return killer;
 		}
-		foreach (Character playerComp in Blenders){
-			if (playerComp.id == id)
-				return playerComp;
+		foreach (Character blender in Blenders){
+			if (blender.id == id)
+				return blender;
+		}
+		foreach (Character blender in BlenderNPCs) {
+			if (blender.id == id)
+				return blender;
 		}
 		return null;
 	}
 
 	private Killer FindKillerByID(string id){
-		foreach (Killer playerComp in Killers){
-			if (playerComp.id == id)
-				return playerComp;
+		foreach (Killer killer in Killers){
+			if (killer.id == id)
+				return killer;
 		}
 		return null;
 	}
 
 	private Blender FindBlenderByID(string id){
-		foreach (Blender playerComp in Blenders){
-			if (playerComp.id == id)
-				return playerComp;
+		foreach (Blender blender in Blenders){
+			if (blender.id == id)
+				return blender;
+		}
+		foreach (Blender blender in BlenderNPCs) {
+			if (blender.id == id)
+				return blender;
 		}
 		return null;
 	}
