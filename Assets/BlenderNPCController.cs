@@ -40,7 +40,7 @@ public class BlenderNPCController : IOGameBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		if (GlobalGameState.IsNPCZombieMaster)
+		if (GlobalGameState.IsNPCBlenderMaster)
 			Init ();
 	}
 
@@ -135,7 +135,7 @@ public class BlenderNPCController : IOGameBehaviour {
 		 * TODO: this should control any clients NPC's action handle. e.g. eating, attacking and stuff
 		 */
 
-		if (!GlobalGameState.IsNPCZombieMaster)
+		if (!GlobalGameState.IsNPCBlenderMaster)
 			return;
 
 		float threshold = navMeshAgent.speed * 0.1f;

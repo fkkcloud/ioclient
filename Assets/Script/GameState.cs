@@ -7,14 +7,21 @@ using System.Text.RegularExpressions;
 
 public class GameState : IOGameBehaviour {
 
+	public enum GameStateEnum {Spectate, IsWaitingForGameStart, IsPlaying};
+	public enum CharacterType {Blender, Killer};
+	public enum WinSide {Blender, Killer, Neither};
+	public enum BoolInt {False, True};
+
 	[HideInInspector]
-	public bool IsNPCZombieMaster = false;
+	public bool IsNPCBlenderMaster = false;
 
 	[Space(20)]
 	public LoginController LoginUI;
 	public ChatUIController ChatUI;
 	public GameUIController GameUI;
 	public DialogueUIController DialogueUI;
+	public LobbyUIController LobbyUI;
+	public Text GameTimeUI;
 
 	[Space(20)]
 	public Text ResponseText;
@@ -42,7 +49,7 @@ public class GameState : IOGameBehaviour {
 	public GameObject BlenderNPCPrefab;
 
 	[Space(10)]
-	public GameObject ScenePrefab;
+	public GameObject[] MapPrefabs;
 
 	[HideInInspector]
 	public List<Killer> Killers = new List<Killer>();
@@ -57,6 +64,8 @@ public class GameState : IOGameBehaviour {
 	public KillerController PlayerKillerController;
 	[HideInInspector]
 	public BlenderController PlayerBlenderController;
+
+	public Camera SpectateCam;
 
 	ThirdPersonCamera ThirdCamComp;
 	FirstPersonCamera FirstCamComp;
@@ -78,6 +87,7 @@ public class GameState : IOGameBehaviour {
 		LoginUI.Hide ();
 		DialogueUI.Hide ();
 		GameUI.Hide ();
+		LobbyUI.Hide ();
 
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
@@ -130,9 +140,15 @@ public class GameState : IOGameBehaviour {
 	private void InitCallbacks(){
 		SocketIOComp.On ("CLIENT:PING", OnPing);
 
+		SocketIOComp.On ("CLIENT:TIMER", OnGameTimeUpdate);
+
 		SocketIOComp.On ("CLIENT:CONNECTED", OnServerConnected);
 
 		SocketIOComp.On ("CLIENT:JOINED", OnUserJoined);
+
+		SocketIOComp.On ("CLIENT:GAMESTATE", OnGameState);
+
+		SocketIOComp.On ("CLIENT:CREATE_MAP", OnCreateMap);
 
 		SocketIOComp.On ("CLIENT:CREATE_OTHER", OnOtherUserCreated);
 
@@ -168,6 +184,17 @@ public class GameState : IOGameBehaviour {
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
+	private void OnGameTimeUpdate(SocketIOEvent evt){
+		int gametime = JsonToInt(evt.data.GetField("time").ToString(), "\"");
+		Debug.Log (gametime);
+		if (gametime > -1) {
+			GameTimeUI.gameObject.SetActive (true);
+			GameTimeUI.text = gametime.ToString ();
+		} else {
+			GameTimeUI.gameObject.SetActive (false);
+		}
+	}
+
 	private void OnServerConnected(SocketIOEvent evt){
 
 		ServerConnected = true;
@@ -177,62 +204,88 @@ public class GameState : IOGameBehaviour {
 	}
 
 	private void OnUserJoined(SocketIOEvent evt){
-
 		// --------- GAME BEGIN ----------
 		Debug.Log ("Connected server as " + evt.data);
 		GameUI.Show ();
 		DialogueUI.Hide ();
 		LoginUI.Hide ();
 		ChatUI.Show ();
+		LobbyUI.Show ();
+	}
 
-		// create currentUser here
-		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
-		bool isSimulated = false; // this is local
+	private void OnSpectateChange(GameStateEnum gs){
+		if (gs != GameStateEnum.IsPlaying)
+			SpectateCam.gameObject.SetActive (true);
+		else
+			SpectateCam.gameObject.SetActive (false);
+	}
 
-		if (PlayType == 0) // case blender
-		{
-			GameObject prefab = Instantiate (BlenderControllerPrefab);
-			PlayerBlenderController = prefab.GetComponent<BlenderController> ();
-			PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
-			PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
-			PlayerBlenderController.CharacterObject = CreateCharacter(evt, isSimulated, BlenderPrefab) as Blender;
-			Blenders.Add (PlayerBlenderController.CharacterObject);
+	private void OnCreateMap(SocketIOEvent evt){
 
-			// for blender 3rd person cam
-			GameObject cam = Instantiate(ThirdCam, PlayerBlenderController.CharacterObject.transform.position + ThirdCam.transform.position, ThirdCam.transform.rotation);
-			ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
-			ThirdCamComp.gameObject.SetActive(true);
-			ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
-
-			// enable blender control UI
-			BlenderJoytickWalk.gameObject.SetActive(true);
-			BlenderJoytickRotate.gameObject.SetActive(true);
-		}
-		else // (PlayType == 1) case killer
-		{
-			GameObject prefab = Instantiate (KillerControllerPrefab);
-			PlayerKillerController = prefab.GetComponent<KillerController> ();
-			PlayerKillerController.JoystickMove = KillerJoystickMove;
-			PlayerKillerController.JoystickCam = KillerJoystickCam;
-			PlayerKillerController.CharacterObject = CreateCharacter(evt, isSimulated, KillerPrefab) as Killer;
-			Killers.Add (PlayerKillerController.CharacterObject);
-
-			// for killer 1st person cam
-			GameObject cam = Instantiate(FirstCam);
-			FirstCamComp = cam.GetComponent<FirstPersonCamera> ();
-			FirstCamComp.gameObject.SetActive(true);
-			FirstCamComp.gameObject.transform.position = PlayerKillerController.CharacterObject.HeadTransform.position;
-			FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
-
-			// enable killer control UI
-			KillerJoystickMove.gameObject.SetActive(true);
-			KillerJoystickCam.gameObject.SetActive(true);
-		}
-
-		// create temp scene
-		CreateScene();
+		int mapid = JsonToInt(evt.data.GetField("mapid").ToString(), "\"");
+		CreateScene(mapid);
 
 		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
+	}
+
+	private void OnGameState(SocketIOEvent evt){
+
+		GameStateEnum gameState = (GameStateEnum)JsonToInt(evt.data.GetField("gamestate").ToString(), "\"");
+
+		Debug.Log ("On Game Stage Change:" + gameState);
+
+		if (gameState == GameStateEnum.Spectate) {
+			OnSpectateChange (gameState);
+		} else if (gameState == GameStateEnum.IsWaitingForGameStart) {
+			OnSpectateChange (gameState);
+		} else if (gameState == GameStateEnum.IsPlaying) {
+			OnSpectateChange (gameState);
+			IsNPCBlenderMaster = JsonToBool(evt.data.GetField("NPCMaster").ToString(), "\"");
+
+			CharacterType PlayType = (CharacterType)JsonToInt(evt.data.GetField("type").ToString(), "\"");
+
+			bool isSimulated = false; // this is local
+
+			if (PlayType == CharacterType.Blender) // case blender
+			{
+				GameObject prefab = Instantiate (BlenderControllerPrefab);
+				PlayerBlenderController = prefab.GetComponent<BlenderController> ();
+				PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
+				PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
+				PlayerBlenderController.CharacterObject = CreateCharacter(evt, isSimulated, BlenderPrefab) as Blender;
+				Blenders.Add (PlayerBlenderController.CharacterObject);
+
+				// for blender 3rd person cam
+				GameObject cam = Instantiate(ThirdCam, PlayerBlenderController.CharacterObject.transform.position + ThirdCam.transform.position, ThirdCam.transform.rotation);
+				ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
+				ThirdCamComp.gameObject.SetActive(true);
+				ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
+
+				// enable blender control UI
+				BlenderJoytickWalk.gameObject.SetActive(true);
+				BlenderJoytickRotate.gameObject.SetActive(true);
+			}
+			else if (PlayType == CharacterType.Killer)
+			{
+				GameObject prefab = Instantiate (KillerControllerPrefab);
+				PlayerKillerController = prefab.GetComponent<KillerController> ();
+				PlayerKillerController.JoystickMove = KillerJoystickMove;
+				PlayerKillerController.JoystickCam = KillerJoystickCam;
+				PlayerKillerController.CharacterObject = CreateCharacter(evt, isSimulated, KillerPrefab) as Killer;
+				Killers.Add (PlayerKillerController.CharacterObject);
+
+				// for killer 1st person cam
+				GameObject cam = Instantiate(FirstCam);
+				FirstCamComp = cam.GetComponent<FirstPersonCamera> ();
+				FirstCamComp.gameObject.SetActive(true);
+				FirstCamComp.gameObject.transform.position = PlayerKillerController.CharacterObject.HeadTransform.position;
+				FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
+
+				// enable killer control UI
+				KillerJoystickMove.gameObject.SetActive(true);
+				KillerJoystickCam.gameObject.SetActive(true);
+			}
+		}
 	}
 
 	private void OnOtherUserCreated(SocketIOEvent evt){
@@ -404,11 +457,11 @@ public class GameState : IOGameBehaviour {
 		return playerObject;
 	}
 
-	public void CreateScene(){
-		CurrentScene = Instantiate (ScenePrefab);
+	public void CreateScene(int mapid){
+		CurrentScene = Instantiate (MapPrefabs[mapid]);
 
 		// create NPC blenders
-		if (GlobalGameState.IsNPCZombieMaster) {
+		if (GlobalGameState.IsNPCBlenderMaster) {
 			GlobalMapManager.CreateNPCBlenders (6);
 		}
 
@@ -541,6 +594,18 @@ public class GameState : IOGameBehaviour {
 		string[] newString = Regex.Split(target,s);
 
 		return int.Parse(newString[1]);
+	}
+
+	bool JsonToBool(string target, string s){
+
+		string[] newString = Regex.Split(target,s);
+
+		int value = int.Parse (newString [1]);
+
+		if (value == 0)
+			return false;
+		else
+			return true;
 	}
 
 	Vector3 StringToVecter3(string target ){

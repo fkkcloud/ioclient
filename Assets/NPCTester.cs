@@ -6,6 +6,6 @@ using UnityEngine.UI;
 public class NPCTester : IOGameBehaviour {
 
 	public void OnChangedBool(bool isOn){
-		GlobalGameState.IsNPCZombieMaster = isOn;
+		GlobalGameState.IsNPCBlenderMaster = isOn;
 	}
 }
