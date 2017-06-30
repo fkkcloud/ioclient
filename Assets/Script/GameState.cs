@@ -14,6 +14,8 @@ public class GameState : IOGameBehaviour {
 
 	[HideInInspector]
 	public bool IsNPCBlenderMaster = false;
+	[HideInInspector]
+	public int NPCCount = 0;
 
 	[Space(20)]
 	public LoginController LoginUI;
@@ -22,6 +24,7 @@ public class GameState : IOGameBehaviour {
 	public DialogueUIController DialogueUI;
 	public LobbyUIController LobbyUI;
 	public Text GameTimeUI;
+	public Text LogText;
 
 	[Space(20)]
 	public Text ResponseText;
@@ -140,15 +143,16 @@ public class GameState : IOGameBehaviour {
 	private void InitCallbacks(){
 		SocketIOComp.On ("CLIENT:PING", OnPing);
 
-		SocketIOComp.On ("CLIENT:TIMER", OnGameTimeUpdate);
+		SocketIOComp.On ("CLIENT:TIMER_UPDATE", OnGameTimeUpdate);
+
+		SocketIOComp.On ("CLIENT:CREATE_MAP", OnCreateMap);
 
 		SocketIOComp.On ("CLIENT:CONNECTED", OnServerConnected);
 
 		SocketIOComp.On ("CLIENT:JOINED", OnUserJoined);
+		SocketIOComp.On ("CLIENT:OTHER_JOINED", OnOtherUserJoined);
 
 		SocketIOComp.On ("CLIENT:GAMESTATE", OnGameState);
-
-		SocketIOComp.On ("CLIENT:CREATE_MAP", OnCreateMap);
 
 		SocketIOComp.On ("CLIENT:CREATE_OTHER", OnOtherUserCreated);
 
@@ -156,7 +160,7 @@ public class GameState : IOGameBehaviour {
 		SocketIOComp.On ("CLIENT:ROTATE_BLENDER", OnBlenderRotate);
 		SocketIOComp.On ("CLIENT:MOVE_KILLER", OnKillerMove);
 
-		SocketIOComp.On ("CLIENT:DISCONNECTED", OnUserDisconnect);
+		SocketIOComp.On ("CLIENT:DISCONNECTED", OnOtherUserDisconnect);
 
 		SocketIOComp.On ("CLIENT:CHATSEND", OnChatSend);
 
@@ -165,6 +169,10 @@ public class GameState : IOGameBehaviour {
 		SocketIOComp.On ("CLIENT:SERVER_FULL", OnServerFull);
 
 		SocketIOComp.On ("CLIENT:BLENDER_NPC_CREATE", OnBlenderNPCCreate);
+
+		SocketIOComp.On ("CLIENT:PLAYERSETUP", OnPlayerSetup);
+
+		SocketIOComp.On ("CLIENT:END_GAME", OnGameEnd);
 	}
 
 	void OnPing(SocketIOEvent evt){ 
@@ -184,9 +192,17 @@ public class GameState : IOGameBehaviour {
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
+	private void OnGameEnd(SocketIOEvent evt){
+		ClearAllControllers ();
+
+		ClearAllPlayers ();
+
+		Destroy (CurrentScene);
+	}
+
 	private void OnGameTimeUpdate(SocketIOEvent evt){
-		int gametime = JsonToInt(evt.data.GetField("time").ToString(), "\"");
-		Debug.Log (gametime);
+
+		int gametime = JsonToInt(evt.data.GetField("timer").ToString(), "\"");
 		if (gametime > -1) {
 			GameTimeUI.gameObject.SetActive (true);
 			GameTimeUI.text = gametime.ToString ();
@@ -205,27 +221,42 @@ public class GameState : IOGameBehaviour {
 
 	private void OnUserJoined(SocketIOEvent evt){
 		// --------- GAME BEGIN ----------
-		Debug.Log ("Connected server as " + evt.data);
+		Debug.Log ("Connected room as " + evt.data);
 		GameUI.Show ();
 		DialogueUI.Hide ();
 		LoginUI.Hide ();
 		ChatUI.Show ();
 		LobbyUI.Show ();
+
+		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
+		LogText.text = "Joined room: " + ChannelText.text;
+	}
+
+	private void OnOtherUserJoined(SocketIOEvent evt){
+		LogText.text = JsonToString(evt.data.GetField("name").ToString(), "\"") + " has joined";
 	}
 
 	private void OnSpectateChange(GameStateEnum gs){
-		if (gs != GameStateEnum.IsPlaying)
+		if (gs != GameStateEnum.IsPlaying) {
 			SpectateCam.gameObject.SetActive (true);
-		else
+			LobbyUI.Show ();
+		} else {
 			SpectateCam.gameObject.SetActive (false);
+			LobbyUI.Hide ();
+		}
 	}
 
 	private void OnCreateMap(SocketIOEvent evt){
 
-		int mapid = JsonToInt(evt.data.GetField("mapid").ToString(), "\"");
-		CreateScene(mapid);
+		Debug.Log ("creating map..:" + evt.data);
 
-		ChannelText.text = JsonToString(evt.data.GetField("room").ToString(), "\"");
+		int mapid = int.Parse(evt.data.GetField("mapid").ToString());
+		if (CurrentScene)
+			DestroyImmediate (CurrentScene);
+		
+		CurrentScene = Instantiate (MapPrefabs[mapid]);
+
+		SocketIOComp.Emit ("SERVER:CREATED_MAP");
 	}
 
 	private void OnGameState(SocketIOEvent evt){
@@ -234,80 +265,102 @@ public class GameState : IOGameBehaviour {
 
 		Debug.Log ("On Game Stage Change:" + gameState);
 
-		if (gameState == GameStateEnum.Spectate) {
+		if (gameState == GameStateEnum.Spectate) 
+		{
 			OnSpectateChange (gameState);
-		} else if (gameState == GameStateEnum.IsWaitingForGameStart) {
+		} 
+		else if (gameState == GameStateEnum.IsWaitingForGameStart) 
+		{
 			OnSpectateChange (gameState);
-		} else if (gameState == GameStateEnum.IsPlaying) {
+		} 
+		else if (gameState == GameStateEnum.IsPlaying) 
+		{
 			OnSpectateChange (gameState);
-			IsNPCBlenderMaster = JsonToBool(evt.data.GetField("NPCMaster").ToString(), "\"");
+			IsNPCBlenderMaster = JsonToBool(evt.data.GetField("npc_master").ToString(), "\"");
+			NPCCount = int.Parse(evt.data.GetField("npc_count").ToString());
 
-			CharacterType PlayType = (CharacterType)JsonToInt(evt.data.GetField("type").ToString(), "\"");
+			SocketIOComp.Emit("SERVER:READY_GAMESTART");
+		}
+	}
 
-			bool isSimulated = false; // this is local
+	private void OnPlayerSetup(SocketIOEvent evt){
 
-			if (PlayType == CharacterType.Blender) // case blender
-			{
-				GameObject prefab = Instantiate (BlenderControllerPrefab);
-				PlayerBlenderController = prefab.GetComponent<BlenderController> ();
-				PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
-				PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
-				PlayerBlenderController.CharacterObject = CreateCharacter(evt, isSimulated, BlenderPrefab) as Blender;
-				Blenders.Add (PlayerBlenderController.CharacterObject);
+		Debug.Log ("creating character/controller");
+		
+		CharacterType PlayType = (CharacterType)JsonToInt(evt.data.GetField("type").ToString(), "\"");
 
-				// for blender 3rd person cam
-				GameObject cam = Instantiate(ThirdCam, PlayerBlenderController.CharacterObject.transform.position + ThirdCam.transform.position, ThirdCam.transform.rotation);
-				ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
-				ThirdCamComp.gameObject.SetActive(true);
-				ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
+		bool isSimulated = false;
 
-				// enable blender control UI
-				BlenderJoytickWalk.gameObject.SetActive(true);
-				BlenderJoytickRotate.gameObject.SetActive(true);
-			}
-			else if (PlayType == CharacterType.Killer)
-			{
-				GameObject prefab = Instantiate (KillerControllerPrefab);
-				PlayerKillerController = prefab.GetComponent<KillerController> ();
-				PlayerKillerController.JoystickMove = KillerJoystickMove;
-				PlayerKillerController.JoystickCam = KillerJoystickCam;
-				PlayerKillerController.CharacterObject = CreateCharacter(evt, isSimulated, KillerPrefab) as Killer;
-				Killers.Add (PlayerKillerController.CharacterObject);
+		Debug.Log ("Creating players controller and character:" + PlayType);
 
-				// for killer 1st person cam
-				GameObject cam = Instantiate(FirstCam);
-				FirstCamComp = cam.GetComponent<FirstPersonCamera> ();
-				FirstCamComp.gameObject.SetActive(true);
-				FirstCamComp.gameObject.transform.position = PlayerKillerController.CharacterObject.HeadTransform.position;
-				FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
+		if (PlayType == CharacterType.Blender) // case blender
+		{
+			GameObject prefab = Instantiate (BlenderControllerPrefab);
+			PlayerBlenderController = prefab.GetComponent<BlenderController> ();
+			PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
+			PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
+			PlayerBlenderController.CharacterObject = CreateCharacter(evt, isSimulated, BlenderPrefab) as Blender;
+			Blenders.Add (PlayerBlenderController.CharacterObject);
 
-				// enable killer control UI
-				KillerJoystickMove.gameObject.SetActive(true);
-				KillerJoystickCam.gameObject.SetActive(true);
-			}
+			// for blender 3rd person cam
+			GameObject cam = Instantiate(ThirdCam, PlayerBlenderController.CharacterObject.transform.position + ThirdCam.transform.position, ThirdCam.transform.rotation);
+			ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
+			ThirdCamComp.gameObject.SetActive(true);
+			ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
+
+			// enable blender control UI
+			BlenderJoytickWalk.gameObject.SetActive(true);
+			BlenderJoytickRotate.gameObject.SetActive(true);
+		}
+		else if (PlayType == CharacterType.Killer)
+		{
+			GameObject prefab = Instantiate (KillerControllerPrefab);
+			PlayerKillerController = prefab.GetComponent<KillerController> ();
+			PlayerKillerController.JoystickMove = KillerJoystickMove;
+			PlayerKillerController.JoystickCam = KillerJoystickCam;
+			PlayerKillerController.CharacterObject = CreateCharacter(evt, isSimulated, KillerPrefab) as Killer;
+			Killers.Add (PlayerKillerController.CharacterObject);
+
+			// for killer 1st person cam
+			GameObject cam = Instantiate(FirstCam);
+			FirstCamComp = cam.GetComponent<FirstPersonCamera> ();
+			FirstCamComp.gameObject.SetActive(true);
+			FirstCamComp.gameObject.transform.position = PlayerKillerController.CharacterObject.HeadTransform.position;
+			FirstCamComp.gameObject.transform.parent = PlayerKillerController.CharacterObject.HeadTransform;
+
+			// enable killer control UI
+			KillerJoystickMove.gameObject.SetActive(true);
+			KillerJoystickCam.gameObject.SetActive(true);
+		}
+
+		SocketIOComp.Emit ("SERVER:CREATE_FOR_OTHERPLAYER");
+
+		// create NPC blenders
+		if (GlobalGameState.IsNPCBlenderMaster) {
+			GlobalMapManager.CreateNPCBlenders (NPCCount);
 		}
 	}
 
 	private void OnOtherUserCreated(SocketIOEvent evt){
 		Debug.Log ("Creating other user " + evt.data);
 
-		// create currentUser here
-		int PlayType = 0;//JsonToInt(evt.data.GetField("playtype").ToString(), "\"");
+		CharacterType PlayType = (CharacterType)JsonToInt(evt.data.GetField("type").ToString(), "\"");
+
+		Debug.Log ("Creating players controller and character:" + PlayType);
 
 		bool isSimulated = true;
 
-		if (PlayType == 0) {
+		if (PlayType == CharacterType.Blender){
 			Blender blender = CreateCharacter (evt, isSimulated, BlenderPrefab) as Blender;
 			blender.Rb.isKinematic = true;
 			blender.Rb.useGravity = false;
 			Blenders.Add(blender);
-		} else {
+		} else if (PlayType == CharacterType.Killer){
 			Killer killer = CreateCharacter (evt, isSimulated, KillerPrefab) as Killer;
 			killer.Rb.isKinematic = true;
 			killer.Rb.useGravity = false;
 			Killers.Add(killer);
 		}
-
 	}
 
 	private void OnBlenderNPCCreate(SocketIOEvent evt){
@@ -349,9 +402,11 @@ public class GameState : IOGameBehaviour {
 		MoveKiller (id, pos, rot);
 	}
 
-	private void OnUserDisconnect(SocketIOEvent evt){
+	private void OnOtherUserDisconnect(SocketIOEvent evt){
 		
 		Debug.Log ("disconnected user " + evt.data);
+
+		LogText.text = JsonToString(evt.data.GetField("name").ToString(), "\"") + " has left";
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
@@ -362,7 +417,7 @@ public class GameState : IOGameBehaviour {
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
 
-		Character player = FindUserByID (id);
+		Character player = FindCharacterByID (id);
 
 		player.txtChatMsg.text = JsonToString(evt.data.GetField("chatmsg").ToString(), "\"");
 	}
@@ -394,7 +449,7 @@ public class GameState : IOGameBehaviour {
 		
 		Killer killer = FindKillerByID (id);
 
-		Debug.Log ("vector length diff:" + Mathf.Abs((killer.transform.position - position).magnitude));
+		//Debug.Log ("vector length diff:" + Mathf.Abs((killer.transform.position - position).magnitude));
 
 		killer.simulatedEndPos = position;
 
@@ -410,6 +465,7 @@ public class GameState : IOGameBehaviour {
 		if (elapsedTime < blender.newestElapsedTimePosition) 
 			return;
 
+		blender.newestElapsedTimePosition = elapsedTime;
 		blender.simulatedEndPos = position;
 	}
 
@@ -421,16 +477,19 @@ public class GameState : IOGameBehaviour {
 		if (elapsedTime < blender.newestElapsedTimeRotation) 
 			return;
 
+		blender.newestElapsedTimeRotation = elapsedTime;
 		blender.simulatedBodyEndRot = Quaternion.Euler(new Vector3(0f, rotation.y, 0f)); // body only yaw
 	}
 
 	private Character CreateCharacter(SocketIOEvent evt, bool IsSimulated, GameObject prefab){
-		Debug.Log ("Creating player object: " + evt);
+		Debug.Log ("Creating player object: " + evt.data);
 
 		string name = JsonToString( evt.data.GetField("name").ToString(), "\"");
 		Vector3 pos = StringToVecter3( JsonToString(evt.data.GetField("position").ToString(), "\"") );
 		Vector2 rot = StringToVecter2( JsonToString(evt.data.GetField("rotation").ToString(), "\"") );
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+
+		Debug.Log ("Creating " + name + " " + pos + " "  + rot + " " + id);
 
 		Quaternion yaw = (rot.y == 0) ? Quaternion.identity : Quaternion.Euler (new Vector3 (0f, rot.y, 0f));
 
@@ -454,17 +513,14 @@ public class GameState : IOGameBehaviour {
 		go.transform.position = pos;
 
 		//playerObject.HeadTransform.localRotation = pitch;
+
+		Debug.Log ("character created:" + go);
+
 		return playerObject;
 	}
 
-	public void CreateScene(int mapid){
-		CurrentScene = Instantiate (MapPrefabs[mapid]);
-
-		// create NPC blenders
-		if (GlobalGameState.IsNPCBlenderMaster) {
-			GlobalMapManager.CreateNPCBlenders (6);
-		}
-
+	public void ClearAllControllers(){
+		Destroy (GetPlayerController ().gameObject);
 	}
 
 	public void ClearAllPlayers(){
@@ -536,7 +592,7 @@ public class GameState : IOGameBehaviour {
 	----------------------------------------------------------------------------------------------------------------
 	*/
 
-	private Character FindUserByID(string id){
+	private Character FindCharacterByID(string id){
 		foreach (Character killer in Killers){
 			if (killer.id == id)
 				return killer;

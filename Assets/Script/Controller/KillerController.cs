@@ -40,8 +40,7 @@ public class KillerController : PlayerController {
 			//debug
 			//Vector3 forward = CharacterObject.gameObject.transform.forward * 2f;
 			//Debug.DrawRay(CharacterObject.gameObject.transform.position, forward, Color.green);
-
-			// get player game object
+			
 			GameObject playerGameObject = CharacterObject.gameObject;
 
 			// position //------------------------------------------------------------

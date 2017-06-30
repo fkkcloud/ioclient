@@ -45,8 +45,6 @@ public class BlenderNPCController : IOGameBehaviour {
 	}
 
 	public void Init(){
-		Debug.Log (blender.id);
-
 		navMeshAgent = GetComponent<NavMeshAgent> ();
 		navMeshAgent.isStopped = true;
 		navMeshAgent.SetDestination (GlobalMapManager.GameDestination.position);

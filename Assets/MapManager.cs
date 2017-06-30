@@ -31,14 +31,17 @@ public class MapManager : IOGameBehaviour {
 			Transform t = NPCSpawnPointsArray [i].transform;
 
 			GameObject npcBlender = Instantiate (GlobalGameState.BlenderNPCPrefab, t.position, t.rotation);
-			npcBlender.GetComponent<BlenderNPCController> ().blender.id = "npc-" + i.ToString ();
+			string npcid = "npcid_" + i.ToString ();
+			npcBlender.GetComponent<BlenderNPCController> ().blender.id = npcid;
 
 			Dictionary<string, string> data = new Dictionary<string, string> ();
-			data ["npcid"] = npcBlender.GetComponent<BlenderNPCController> ().blender.id;
-			data ["name"] = npcBlender.GetComponent<BlenderNPCController> ().blender.id;
+			data ["npcid"] = npcid;
+			data ["name"] = npcid;
 			data ["position"] = npcBlender.transform.position.x + "," + npcBlender.transform.position.y + "," + npcBlender.transform.position.z;
 			data ["rotation"] = 0 + "," + npcBlender.transform.position.y;
 			SocketIOComp.Emit("SERVER:BLENDER_NPC_CREATE", new JSONObject(data));
+
+			GlobalGameState.BlenderNPCs.Add(npcBlender.GetComponent<Blender>());
 		}
 	}
 
