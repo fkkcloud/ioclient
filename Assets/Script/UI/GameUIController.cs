@@ -8,7 +8,7 @@ public class GameUIController : UIController {
 
 	// Use this for initialization
 	void Start () {
-		LeaveChannelBtn.onClick.AddListener (LeaveChannel);
+		LeaveChannelBtn.onClick.AddListener (LeaveGame);
 	}
 	
 	// Update is called once per frame
@@ -16,13 +16,19 @@ public class GameUIController : UIController {
 		
 	}
 
-	void LeaveChannel(){
-		SocketIOComp.Emit ("SERVER:LEAVE");
+	void LeaveGame(){
+		SocketIOComp.Emit ("SERVER:LEAVE_GAME");
 
-		GlobalGameState.Disconnect ();
+		//GlobalGameState.Disconnect ();
+		GlobalGameState.HandleLeaveGame();
 
-		GlobalGameState.LoginUI.Show ();
-		GlobalGameState.ChatUI.Hide ();
 		Hide ();
+		GlobalGameState.HideAllUI ();
+		GlobalGameState.LobbyUI.ResetLobbyState ();
+		GlobalGameState.LobbyUI.Show ();
+		GlobalGameState.GameUI.Show ();
+
+		// set spectate cam on!
+		GlobalGameState.SpectateCam.gameObject.SetActive (true);
 	}
 }

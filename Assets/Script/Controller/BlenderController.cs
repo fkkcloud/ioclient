@@ -26,7 +26,7 @@ public class BlenderController : PlayerController {
 	protected override void Update () {
 		base.Update ();
 
-		if (JoystickMove && JoystickRotate) 
+		if (JoystickMove && JoystickRotate && CharacterObject) 
 		{
 			// rotation //------------------------------------------------------------
 			float yaw = JoystickRotate.Yaw ();
@@ -72,5 +72,12 @@ public class BlenderController : PlayerController {
 		movement = 2f;
 
 		CharacterObject.Anim.SetBool ("Walk", true);
+	}
+
+	void OnDestroy(){
+		if (GlobalGameState == null)
+			return;
+		GlobalGameState.BlenderJoytickRotate.gameObject.SetActive (false);
+		GlobalGameState.BlenderJoytickWalk.gameObject.SetActive (false);
 	}
 }

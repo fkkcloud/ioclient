@@ -8,6 +8,7 @@ public class ChatUIController : UIController {
 
 	public Button BtnSend;
 	public InputField InputMsg;
+	public Text ChatText;
 
 	// Use this for initialization
 	void Start () {
@@ -44,7 +45,7 @@ public class ChatUIController : UIController {
 			SendChat (InputMsg.text);
 		}
 		else {
-			InputMsg.text = "Please enter your name again";
+			InputMsg.text = "Speak up yourself.";
 		}
 	}
 

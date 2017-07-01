@@ -17,16 +17,40 @@ public class LobbyUIController : UIController {
 	}
 
 	void OnClickReadyBtn(){
+		GlobalGameState.IsPlayerReady = true;
+
 		Dictionary<string, string> data = new Dictionary<string, string> ();
 		data ["ready"] = "1";
 
 		SocketIOComp.Emit ("SERVER:USER_READY", new JSONObject (data));
+		LeaveGameBtn.gameObject.SetActive (true);
+		JoinGameBtn.gameObject.SetActive (false);
 	}
 
 	void OnClickReadyCancelBtn(){
+		ResetLobbyState ();
+	}
+
+	public override void Show(){
+		base.Show ();
+
+		if (!GlobalGameState.IsPlayerReady) {
+			LeaveGameBtn.gameObject.SetActive (false);
+			JoinGameBtn.gameObject.SetActive (true);
+		} else {
+			LeaveGameBtn.gameObject.SetActive (true);
+			JoinGameBtn.gameObject.SetActive (false);
+		}
+	}
+
+	public void ResetLobbyState(){
+		GlobalGameState.IsPlayerReady = false;
+
 		Dictionary<string, string> data = new Dictionary<string, string> ();
 		data ["ready"] = "0";
 
 		SocketIOComp.Emit ("SERVER:USER_READY", new JSONObject (data));
+		LeaveGameBtn.gameObject.SetActive (false);
+		JoinGameBtn.gameObject.SetActive (true);
 	}
 }

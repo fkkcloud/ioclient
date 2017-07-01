@@ -6,16 +6,19 @@ using SocketIO;
 public class MapManager : IOGameBehaviour {
 
 	public Transform GameDestination;
-	public GameObject NPCSpawnPoints;
+
+	[HideInInspector]
+	public MapData mapData;
 
 	[HideInInspector]
 	public GameObject[] NPCSpawnPointsArray;
 
-	// Use this for initialization
-	void Start () {
-		NPCSpawnPointsArray = new GameObject[NPCSpawnPoints.transform.childCount];
+
+	public void Init(MapData mapDataArg){
+		mapData = mapDataArg;
+		NPCSpawnPointsArray = new GameObject[mapData.NPCSpawnPointParent.transform.childCount];
 		int i = 0;
-		foreach (Transform child in NPCSpawnPoints.transform)
+		foreach (Transform child in mapData.NPCSpawnPointParent.transform)
 		{
 			//child is your child transform
 			NPCSpawnPointsArray[i] = child.gameObject;

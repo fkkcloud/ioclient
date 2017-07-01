@@ -51,7 +51,8 @@ public class BlenderNPCController : IOGameBehaviour {
 
 		prevRot = gameObject.transform.rotation;
 
-		StartCoroutine (ChangeAction (1f));
+		DoWalking (); // start with walking
+		StartCoroutine (ChangeAction (3.5f));
 	}
 
 	IEnumerator ChangeAction(float waitTime)

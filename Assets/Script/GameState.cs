@@ -16,6 +16,8 @@ public class GameState : IOGameBehaviour {
 	public bool IsNPCBlenderMaster = false;
 	[HideInInspector]
 	public int NPCCount = 0;
+	[HideInInspector]
+	public bool IsPlayerReady = false;
 
 	[Space(20)]
 	public LoginController LoginUI;
@@ -79,6 +81,14 @@ public class GameState : IOGameBehaviour {
 	float lastpongtime = 0f;
 	bool pingdone = false;
 
+	public void HideAllUI(){
+		ChatUI.Hide ();
+		LoginUI.Hide ();
+		GameUI.Hide ();
+		LobbyUI.Hide ();
+		DialogueUI.Hide ();
+	}
+		
 	// Use this for initialization
 	void Start () {
 
@@ -86,11 +96,8 @@ public class GameState : IOGameBehaviour {
 		Screen.SetResolution(16 * 45, 9 * 45, false);
 		#endif
 
-		ChatUI.Hide ();
-		LoginUI.Hide ();
-		DialogueUI.Hide ();
-		GameUI.Hide ();
-		LobbyUI.Hide ();
+
+		HideAllUI ();
 
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
@@ -113,9 +120,9 @@ public class GameState : IOGameBehaviour {
 		float lastpongduration = Mathf.Abs (Time.timeSinceLevelLoad - lastpongtime);
 		if (lastpongduration > 4f) {
 			ServerConnected = false;
-			ChatUI.Hide ();
-			LoginUI.Hide ();
-			GameUI.Hide ();
+
+			DialogueUI.Show ();
+
 			Disconnect ();
 		}
 
@@ -193,11 +200,10 @@ public class GameState : IOGameBehaviour {
 	*/
 
 	private void OnGameEnd(SocketIOEvent evt){
-		ClearAllControllers ();
 
-		ClearAllPlayers ();
+		ClearScene ();
 
-		Destroy (CurrentScene);
+		SocketIOComp.Emit ("SERVER:ENDED_GAME");
 	}
 
 	private void OnGameTimeUpdate(SocketIOEvent evt){
@@ -215,16 +221,16 @@ public class GameState : IOGameBehaviour {
 
 		ServerConnected = true;
 
-		DialogueUI.Hide ();
+		HideAllUI ();
 		LoginUI.Show ();
 	}
 
 	private void OnUserJoined(SocketIOEvent evt){
 		// --------- GAME BEGIN ----------
 		Debug.Log ("Connected room as " + evt.data);
+
+		HideAllUI ();
 		GameUI.Show ();
-		DialogueUI.Hide ();
-		LoginUI.Hide ();
 		ChatUI.Show ();
 		LobbyUI.Show ();
 
@@ -236,50 +242,58 @@ public class GameState : IOGameBehaviour {
 		LogText.text = JsonToString(evt.data.GetField("name").ToString(), "\"") + " has joined";
 	}
 
-	private void OnSpectateChange(GameStateEnum gs){
-		if (gs != GameStateEnum.IsPlaying) {
-			SpectateCam.gameObject.SetActive (true);
-			LobbyUI.Show ();
-		} else {
-			SpectateCam.gameObject.SetActive (false);
-			LobbyUI.Hide ();
-		}
-	}
-
 	private void OnCreateMap(SocketIOEvent evt){
 
 		Debug.Log ("creating map..:" + evt.data);
 
 		int mapid = int.Parse(evt.data.GetField("mapid").ToString());
-		if (CurrentScene)
-			DestroyImmediate (CurrentScene);
+		if (CurrentScene == null)
+			CurrentScene = Instantiate (MapPrefabs[mapid]);
 		
-		CurrentScene = Instantiate (MapPrefabs[mapid]);
+		GlobalMapManager.Init (CurrentScene.GetComponent<MapData> ());
 
-		SocketIOComp.Emit ("SERVER:CREATED_MAP");
+		//SocketIOComp.Emit ("SERVER:CREATED_MAP", );
 	}
 
 	private void OnGameState(SocketIOEvent evt){
 
 		GameStateEnum gameState = (GameStateEnum)JsonToInt(evt.data.GetField("gamestate").ToString(), "\"");
 
-		Debug.Log ("On Game Stage Change:" + gameState);
+		Debug.Log ("////////// GAMESTATE CHANGE ////////// ::" + gameState);
 
 		if (gameState == GameStateEnum.Spectate) 
 		{
-			OnSpectateChange (gameState);
+			HideAllUI ();
+			LobbyUI.Show ();
+			GameUI.Show ();
+			OnSpectateChangeCamera (gameState);
 		} 
 		else if (gameState == GameStateEnum.IsWaitingForGameStart) 
 		{
-			OnSpectateChange (gameState);
+			HideAllUI ();
+			LobbyUI.Show ();
+			GameUI.Show ();
+			OnSpectateChangeCamera (gameState);
 		} 
 		else if (gameState == GameStateEnum.IsPlaying) 
 		{
-			OnSpectateChange (gameState);
+			HideAllUI ();
+			GameUI.Show ();
+			ChatUI.Show ();
+
+			OnSpectateChangeCamera (gameState);
 			IsNPCBlenderMaster = JsonToBool(evt.data.GetField("npc_master").ToString(), "\"");
 			NPCCount = int.Parse(evt.data.GetField("npc_count").ToString());
 
 			SocketIOComp.Emit("SERVER:READY_GAMESTART");
+		}
+	}
+
+	private void OnSpectateChangeCamera(GameStateEnum gs){
+		if (gs != GameStateEnum.IsPlaying) {
+			SpectateCam.gameObject.SetActive (true);
+		} else {
+			SpectateCam.gameObject.SetActive (false);
 		}
 	}
 
@@ -300,6 +314,7 @@ public class GameState : IOGameBehaviour {
 			PlayerBlenderController.JoystickMove = BlenderJoytickWalk;
 			PlayerBlenderController.JoystickRotate = BlenderJoytickRotate;
 			PlayerBlenderController.CharacterObject = CreateCharacter(evt, isSimulated, BlenderPrefab) as Blender;
+			Debug.Log ("Created Blender:" + PlayerBlenderController.CharacterObject);
 			Blenders.Add (PlayerBlenderController.CharacterObject);
 
 			// for blender 3rd person cam
@@ -319,6 +334,7 @@ public class GameState : IOGameBehaviour {
 			PlayerKillerController.JoystickMove = KillerJoystickMove;
 			PlayerKillerController.JoystickCam = KillerJoystickCam;
 			PlayerKillerController.CharacterObject = CreateCharacter(evt, isSimulated, KillerPrefab) as Killer;
+			Debug.Log ("Created Killer:" + PlayerKillerController.CharacterObject);
 			Killers.Add (PlayerKillerController.CharacterObject);
 
 			// for killer 1st person cam
@@ -416,10 +432,11 @@ public class GameState : IOGameBehaviour {
 	private void OnChatSend(SocketIOEvent evt){
 
 		string id = JsonToString(evt.data.GetField("id").ToString(), "\"");
+		string name = JsonToString(evt.data.GetField("name").ToString(), "\"");
 
-		Character player = FindCharacterByID (id);
+		//Character player = FindCharacterByID (id);
 
-		player.txtChatMsg.text = JsonToString(evt.data.GetField("chatmsg").ToString(), "\"");
+		ChatUI.ChatText.text = name + ":" + JsonToString(evt.data.GetField("chatmsg").ToString(), "\"");
 	}
 
 	private void OnRoomFull(SocketIOEvent evt){
@@ -500,58 +517,58 @@ public class GameState : IOGameBehaviour {
 			go = Instantiate (prefab, pos, yaw);
 		else
 			go = Instantiate (prefab, pos, Quaternion.identity);
-		
+
 		Character playerObject = go.GetComponent<Character> ();
 
 		// set basics
 		playerObject.IsSimulated = IsSimulated;
 		playerObject.id = id;
-		playerObject.txtUserName.text = name;
-		playerObject.txtChatMsg.text = "";
+		//playerObject.txtUserName.text = name;
 
 		go.name = name;
 		go.transform.position = pos;
 
 		//playerObject.HeadTransform.localRotation = pitch;
 
-		Debug.Log ("character created:" + go);
+		Debug.Log ("character created:" + playerObject + "::" + go);
 
 		return playerObject;
 	}
 
-	public void ClearAllControllers(){
-		Destroy (GetPlayerController ().gameObject);
+	public void ClearController(){
+		PlayerController pc = GetPlayerController ();
+
+		if (pc)
+			Destroy (pc.gameObject);
 	}
 
 	public void ClearAllPlayers(){
-		// clear all the characters
-		foreach (Character player in Killers) {
+
+		Debug.Log("deleting all killers:" + Killers.Count);
+		foreach (Killer player in Killers) {
 			Destroy (player.gameObject);
 		}
-		Killers.Clear ();
 
-		// clear all the characters
-		foreach (Character player in Blenders) {
+		Debug.Log("deleting all blenders" + Blenders.Count);
+		foreach (Blender player in Blenders) {
 			Destroy (player.gameObject);
 		}
-		Blenders.Clear ();
-
+			
+		Debug.Log("deleting all blender NPC" + BlenderNPCs.Count);
 		foreach (Blender blender in BlenderNPCs) {
 			Destroy (blender.gameObject);
 		}
+			
+		Blenders.Clear ();
+		Killers.Clear ();
 		BlenderNPCs.Clear ();
 	}
 
-	public void Disconnect(){
+	public void ClearScene(){
+		ClearController ();
 
-		if (PlayerBlenderController)
-			Destroy (PlayerBlenderController.gameObject);
+		ClearAllPlayers ();
 
-		if (PlayerKillerController)
-			Destroy (PlayerKillerController.gameObject);
-
-		KillerJoystickMove.gameObject.SetActive (false);
-		KillerJoystickCam.gameObject.SetActive (false);
 
 		if (ThirdCamComp)
 			Destroy (ThirdCamComp.gameObject);
@@ -559,11 +576,30 @@ public class GameState : IOGameBehaviour {
 		if (FirstCamComp)
 			Destroy (FirstCamComp.gameObject);
 
-		if (CurrentScene)
-			Destroy (CurrentScene);	
+		Destroy (CurrentScene);	
 
-		ClearAllPlayers ();
 
+
+
+	}
+
+	public void Disconnect(){
+		ClearScene ();
+	}
+
+	public void HandleLeaveGame(){
+		ClearMyselfInLocal ();
+		ClearController ();
+	}
+
+	public void ClearMyselfInLocal(){
+		BlenderController blenderCtrl = GetPlayerController () as BlenderController;
+		if (blenderCtrl != null)
+			Destroy (blenderCtrl.CharacterObject.gameObject);
+
+		KillerController killerCtrl = GetPlayerController () as KillerController;
+		if (killerCtrl != null)
+			Destroy (killerCtrl.CharacterObject.gameObject);
 	}
 
 	public void RemoveUser(string id){

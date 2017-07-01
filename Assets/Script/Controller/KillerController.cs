@@ -26,7 +26,7 @@ public class KillerController : PlayerController {
 	protected override void Update () {
 		base.Update ();
 
-		if (JoystickMove && JoystickCam) {
+		if (JoystickMove && JoystickCam && CharacterObject) {
 			
 			float x = JoystickMove.Vertical ();
 			float z = JoystickMove.Horizontal();
@@ -85,5 +85,13 @@ public class KillerController : PlayerController {
 
 		}
 
+	}
+
+	void OnDestroy(){
+		if (GlobalGameState == null)
+			return;
+		
+		GlobalGameState.KillerJoystickMove.gameObject.SetActive (false);
+		GlobalGameState.KillerJoystickCam.gameObject.SetActive (false);
 	}
 }
