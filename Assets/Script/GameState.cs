@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 
 public class GameState : IOGameBehaviour {
 
-	public enum GameStateEnum {Spectate, IsWaitingForGameStart, IsPlaying};
+	public enum GameStateEnum {Spectate, IsWaitingForGameStart, IsPlaying, EndedGame};
 	public enum CharacterType {Blender, Killer};
 	public enum WinSide {Blender, Killer, Neither};
 	public enum BoolInt {False, True};
@@ -27,6 +27,7 @@ public class GameState : IOGameBehaviour {
 	public LobbyUIController LobbyUI;
 	public Text GameTimeUI;
 	public Text LogText;
+	public GameEndUIController GameEndUI;
 
 	[Space(20)]
 	public Text ResponseText;
@@ -87,6 +88,7 @@ public class GameState : IOGameBehaviour {
 		GameUI.Hide ();
 		LobbyUI.Hide ();
 		DialogueUI.Hide ();
+		GameEndUI.Hide ();
 	}
 		
 	// Use this for initialization
@@ -98,6 +100,7 @@ public class GameState : IOGameBehaviour {
 
 
 		HideAllUI ();
+		DialogueUI.Show ();
 
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
@@ -179,7 +182,6 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.On ("CLIENT:PLAYERSETUP", OnPlayerSetup);
 
-		SocketIOComp.On ("CLIENT:END_GAME", OnGameEnd);
 	}
 
 	void OnPing(SocketIOEvent evt){ 
@@ -198,13 +200,6 @@ public class GameState : IOGameBehaviour {
 	Callbacks
 	----------------------------------------------------------------------------------------------------------------
 	*/
-
-	private void OnGameEnd(SocketIOEvent evt){
-
-		ClearScene ();
-
-		SocketIOComp.Emit ("SERVER:ENDED_GAME");
-	}
 
 	private void OnGameTimeUpdate(SocketIOEvent evt){
 
@@ -261,31 +256,38 @@ public class GameState : IOGameBehaviour {
 
 		Debug.Log ("////////// GAMESTATE CHANGE ////////// ::" + gameState);
 
-		if (gameState == GameStateEnum.Spectate) 
-		{
+		if (gameState == GameStateEnum.Spectate) {
 			HideAllUI ();
 			LobbyUI.Show ();
 			GameUI.Show ();
 			OnSpectateChangeCamera (gameState);
-		} 
-		else if (gameState == GameStateEnum.IsWaitingForGameStart) 
-		{
+		} else if (gameState == GameStateEnum.IsWaitingForGameStart) {
 			HideAllUI ();
 			LobbyUI.Show ();
 			GameUI.Show ();
 			OnSpectateChangeCamera (gameState);
-		} 
-		else if (gameState == GameStateEnum.IsPlaying) 
-		{
+		} else if (gameState == GameStateEnum.IsPlaying) {
 			HideAllUI ();
 			GameUI.Show ();
 			ChatUI.Show ();
 
 			OnSpectateChangeCamera (gameState);
-			IsNPCBlenderMaster = JsonToBool(evt.data.GetField("npc_master").ToString(), "\"");
-			NPCCount = int.Parse(evt.data.GetField("npc_count").ToString());
+			IsNPCBlenderMaster = JsonToBool (evt.data.GetField ("npc_master").ToString (), "\"");
+			NPCCount = int.Parse (evt.data.GetField ("npc_count").ToString ());
 
-			SocketIOComp.Emit("SERVER:READY_GAMESTART");
+			SocketIOComp.Emit ("SERVER:READY_GAMESTART");
+		} else if (gameState == GameStateEnum.EndedGame) {
+			HideAllUI ();
+
+			WinSide winSide = (WinSide)JsonToInt(evt.data.GetField("winside").ToString(), "\"");
+			GameEndUI.SetState (winSide);
+			GameEndUI.Show ();
+
+			ClearScene ();
+
+			SocketIOComp.Emit ("SERVER:ENDED_GAME");
+
+			OnSpectateChangeCamera (gameState);
 		}
 	}
 
@@ -546,17 +548,20 @@ public class GameState : IOGameBehaviour {
 
 		Debug.Log("deleting all killers:" + Killers.Count);
 		foreach (Killer player in Killers) {
-			Destroy (player.gameObject);
+			if (player)
+				Destroy (player.gameObject);
 		}
 
 		Debug.Log("deleting all blenders" + Blenders.Count);
 		foreach (Blender player in Blenders) {
-			Destroy (player.gameObject);
+			if (player)
+				Destroy (player.gameObject);
 		}
 			
 		Debug.Log("deleting all blender NPC" + BlenderNPCs.Count);
 		foreach (Blender blender in BlenderNPCs) {
-			Destroy (blender.gameObject);
+			if (blender)
+				Destroy (blender.gameObject);
 		}
 			
 		Blenders.Clear ();
@@ -565,6 +570,7 @@ public class GameState : IOGameBehaviour {
 	}
 
 	public void ClearScene(){
+		
 		ClearController ();
 
 		ClearAllPlayers ();
@@ -577,10 +583,6 @@ public class GameState : IOGameBehaviour {
 			Destroy (FirstCamComp.gameObject);
 
 		Destroy (CurrentScene);	
-
-
-
-
 	}
 
 	public void Disconnect(){
