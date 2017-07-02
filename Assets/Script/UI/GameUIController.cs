@@ -16,19 +16,8 @@ public class GameUIController : UIController {
 		
 	}
 
-	void LeaveGame(){
-		SocketIOComp.Emit ("SERVER:LEAVE_GAME");
-
-		//GlobalGameState.Disconnect ();
-		GlobalGameState.HandleLeaveGame();
-
-		Hide ();
-		GlobalGameState.HideAllUI ();
-		GlobalGameState.LobbyUI.ResetLobbyState ();
-		GlobalGameState.LobbyUI.Show ();
-		GlobalGameState.GameUI.Show ();
-
-		// set spectate cam on!
-		GlobalGameState.SpectateCam.gameObject.SetActive (true);
+	public void LeaveGame(){
+		bool IsByPlayerWill = true;
+		GlobalGameState.LeaveGame (IsByPlayerWill);
 	}
 }

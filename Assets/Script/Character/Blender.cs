@@ -9,6 +9,9 @@ public class Blender : Character {
 	public Vector3 targetCharacterPosition;
 
 	[HideInInspector]
+	public bool IsNPC = false;
+
+	[HideInInspector]
 	public float newestElapsedTimePosition = 0f;
 	[HideInInspector]
 	public float newestElapsedTimeRotation = 0f;
@@ -41,5 +44,22 @@ public class Blender : Character {
 			// body rotation yaw
 			transform.rotation = Quaternion.RotateTowards (transform.rotation, simulatedBodyEndRot, simulationRotDuration * Time.deltaTime);
 		}
+	}
+
+	public void Kill(string killername) {
+
+		GlobalGameState.LogText.text = killername + " killed " + gameObject.name;
+
+		GameObject particleGO;
+		if (!IsNPC) {
+			particleGO = Instantiate (GlobalGameState.BlenderPlayerKillFX, gameObject.transform.position, Quaternion.identity);
+		} else {
+			particleGO = Instantiate (GlobalGameState.BlenderNPCKillFX, gameObject.transform.position, Quaternion.identity);
+		}
+		if (particleGO && particleGO.GetComponent<ParticleSystem> ()) {
+			particleGO.GetComponent<ParticleSystem> ().Play ();
+		}
+
+		GlobalGameState.RemoveUser (id);
 	}
 }

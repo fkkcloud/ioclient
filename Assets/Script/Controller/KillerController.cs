@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using SocketIO;
 
 public class KillerController : PlayerController {
@@ -8,14 +9,27 @@ public class KillerController : PlayerController {
 	[HideInInspector]
 	public Killer CharacterObject;
 
+	private int KillerLife = 3;
+
 	public KillerJoystickMove JoystickMove;
 	public KillerJoystickCamera JoystickCam;
 
+	public Image DamageUI;
+	public Color DamageClrStart;
+	public Color DamageClrPeak;
+
+	public Image[] KillerLifeUI;
+
+	[Space(10)]
 	public float SensitivityX = 1f;
 	public float SensitivityZ = 1f;
 
+	[Space(10)]
 	public float SensitivityYaw = 20f;
 	public float SensitivityPitch = 20f;
+
+	[Space(10)]
+	public float KillDist = 20f;
 
 	// Use this for initialization
 	protected override void Start () {
@@ -27,6 +41,10 @@ public class KillerController : PlayerController {
 		base.Update ();
 
 		if (JoystickMove && JoystickCam && CharacterObject) {
+
+			// debug ray for kill
+			Vector3 fwd = CharacterObject.gameObject.transform.forward + new Vector3(0f, 0.5f, 0f);
+			Debug.DrawRay(CharacterObject.gameObject.transform.position, fwd * KillDist, Color.red);
 			
 			float x = JoystickMove.Vertical ();
 			float z = JoystickMove.Horizontal();
@@ -82,16 +100,48 @@ public class KillerController : PlayerController {
 				//Debug.Log ("Attempting move:" + data["position"]);
 				SocketIOComp.Emit("SERVER:MOVE_KILLER", new JSONObject(data));
 			}
-
 		}
-
 	}
 
-	void OnDestroy(){
-		if (GlobalGameState == null)
-			return;
+	public void TryKill(){
+		RaycastHit objectHit;
+		Vector3 fwd = CharacterObject.gameObject.transform.forward + new Vector3(0f, 0.5f, 0f);
+
+		if (Physics.Raycast(CharacterObject.gameObject.transform.position, fwd, out objectHit, KillDist))
+		{
+			if (objectHit.collider == null || objectHit.collider.gameObject == null)
+				return;
+			
+			Blender blender = objectHit.collider.gameObject.GetComponent<Blender>();
+			if(blender != null){
+				Debug.Log("Killing blender:" + blender.gameObject.name);
+
+				blender.Kill (CharacterObject.gameObject.name);
+
+				Dictionary<string, string> data = new Dictionary<string, string> ();
+				data ["id"] = blender.id;
+				SocketIOComp.Emit("SERVER:KILL_BLENDER", new JSONObject(data));
+
+				if (blender.IsNPC) {
+					KillerLife--;
+					KillerLifeUI [KillerLife].gameObject.SetActive (false);
+
+					LeanTween.value( DamageUI.gameObject, DamageClrStart, DamageClrPeak, .07f).setOnUpdate((Color val)=>{
+						DamageUI.color = val;
+					}).setLoopPingPong(1);
+
+					if (KillerLife == 0) {
+						KillerDie ();
+					}
+				}
+			}
+		}
+	}
 		
-		GlobalGameState.KillerJoystickMove.gameObject.SetActive (false);
-		GlobalGameState.KillerJoystickCam.gameObject.SetActive (false);
+
+	public void KillerDie(){
+		CharacterObject.Die();
+		bool IsByPlayerWill = false;
+		GlobalGameState.LeaveGame (IsByPlayerWill);
 	}
 }

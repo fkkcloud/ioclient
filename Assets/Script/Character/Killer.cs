@@ -35,4 +35,16 @@ public class Killer : Character {
 		// head rotation pitch
 		HeadTransform.localRotation = Quaternion.RotateTowards(HeadTransform.localRotation, simulatedHeadEndLocalRot, simulationRotDuration * Time.deltaTime);
 	}
+
+	public void Die(){
+		//GlobalGameState.LogText.text = killername + " killed " + gameObject.name;
+
+		GameObject particleGO = Instantiate (GlobalGameState.KillerDieFX, gameObject.transform.position, Quaternion.identity);
+
+		if (particleGO && particleGO.GetComponent<ParticleSystem> ()) {
+			particleGO.GetComponent<ParticleSystem> ().Play ();
+		}
+
+		GlobalGameState.RemoveUser (id);
+	}
 }
