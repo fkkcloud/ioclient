@@ -82,8 +82,9 @@ public class KillerController : PlayerController {
 
 			if (yaw != 0f || pitch != 0f) {
 				// reminder - Euler(pitch , yaw , roll)
-				newBodyRotation = JoystickCam.BaseBodyRotation + new Vector3 (0f, yaw * SensitivityYaw, 0f);
-				newHeadRotation = JoystickCam.BaseHeadLocalRotation + new Vector3 (pitch * SensitivityPitch, 0f, 0f);
+				newBodyRotation = /*JoystickCam.BaseBodyRotation*/playerGameObject.transform.rotation.eulerAngles + new Vector3 (0f, yaw * SensitivityYaw, 0f);
+				//newHeadRotation = JoystickCam.BaseHeadLocalRotation + new Vector3 (pitch * SensitivityPitch, 0f, 0f);
+				newHeadRotation = JoystickCam.BaseHeadLocalRotation - new Vector3 (pitch * SensitivityPitch, 0f, 0f);
 
 				playerGameObject.transform.rotation = Quaternion.Euler (newBodyRotation);
 				CharacterObject.HeadTransform.localRotation = Quaternion.Euler (newHeadRotation);

@@ -9,6 +9,7 @@ public class KillerJoystickMove : MonoBehaviour, IDragHandler, IPointerUpHandler
 	private Image bgImg;
 	private Image joystickImg;
 	private Vector3 inputVector;
+	private Vector3 Velocity;
 
 	private void Start(){
 		bgImg = GetComponent<Image> ();
@@ -34,8 +35,13 @@ public class KillerJoystickMove : MonoBehaviour, IDragHandler, IPointerUpHandler
 			float x = (bgImg.rectTransform.pivot.x == 1f) ? pos.x * 2 + 1 : pos.x * 2 - 1;
 			float y = (bgImg.rectTransform.pivot.y == 1f) ? pos.y * 2 + 1 : pos.y * 2 - 1;
 
-			inputVector = new Vector3 (x, y, 0f);
-			inputVector = (inputVector.magnitude > 1f) ? inputVector.normalized : inputVector;
+			Vector3 DesiredInput = new Vector3 (x, y, 0f);
+			DesiredInput = (DesiredInput.magnitude > 1f) ? DesiredInput.normalized : DesiredInput;
+
+			inputVector = Vector3.SmoothDamp (inputVector, DesiredInput, ref Velocity, 3f * Time.deltaTime);
+
+			//inputVector = new Vector3 (x, y, 0f);
+			//inputVector = (inputVector.magnitude > 1f) ? inputVector.normalized : inputVector;
 
 			//Debug.Log (inputVector);
 

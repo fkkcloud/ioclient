@@ -9,6 +9,7 @@ public class BlenderController : PlayerController {
 	public Blender CharacterObject;
 
 	public BlenderJoystickRotate JoystickRotate;
+	public BlenderJoystickCamera JoystickCam;
 
 	float movement = 0f;
 
@@ -19,6 +20,8 @@ public class BlenderController : PlayerController {
 	// Use this for initialization
 	protected override void Start () {
 		base.Start ();
+
+
 	}
 
 	// Update is called once per frame

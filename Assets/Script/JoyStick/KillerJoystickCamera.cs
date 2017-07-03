@@ -41,6 +41,7 @@ public class KillerJoystickCamera : IOGameBehaviour, IDragHandler, IPointerUpHan
 			, ped.pressEventCamera
 			, out draggedPos)) 
 		{
+			/* OLD METHOD
 			float xDelta = (draggedPos.x - BaseScreenPosition.x) / Screen.width; //yaw - normalized
 			float yDelta = (BaseScreenPosition.y - draggedPos.y) / Screen.height; //pitch - normalized
 
@@ -51,6 +52,17 @@ public class KillerJoystickCamera : IOGameBehaviour, IDragHandler, IPointerUpHan
 
 			// Move Joystick IMG
 			joystickImg.rectTransform.anchoredPosition = draggedPos;
+			*/
+
+			float xDelta = (draggedPos.x - BaseScreenPosition.x) / bgImg.rectTransform.sizeDelta.x; //yaw - normalized
+			float yDelta = (draggedPos.y - BaseScreenPosition.y) / bgImg.rectTransform.sizeDelta.y; //pitch - normalized
+			inputVector = new Vector3 (xDelta, yDelta, 0f);
+			inputVector = (inputVector.magnitude > 1f) ? inputVector.normalized : inputVector;
+
+			joystickImg.rectTransform.anchoredPosition = new Vector3(
+				inputVector.x * (bgImg.rectTransform.sizeDelta.x * 0.5f), 
+				inputVector.y * (bgImg.rectTransform.sizeDelta.y * 0.5f), 
+				0f);
 		}
 	}
 

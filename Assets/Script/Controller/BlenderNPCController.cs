@@ -26,6 +26,11 @@ public class BlenderNPCController : IOGameBehaviour {
 
 	public Blender blender;
 
+	bool IsOneRest = false;
+
+	IEnumerator routine;
+
+
 	Quaternion prevRot;
 
 	// 0:Dead, 1:Idle, 2:Walking, 3:Rotating, 4:Eating
@@ -47,46 +52,50 @@ public class BlenderNPCController : IOGameBehaviour {
 	public void Init(){
 		navMeshAgent = GetComponent<NavMeshAgent> ();
 		navMeshAgent.isStopped = true;
-		navMeshAgent.SetDestination (GlobalMapManager.GameDestination.position);
+		navMeshAgent.SetDestination (GetNewDestination());
 
 		prevRot = gameObject.transform.rotation;
 
 		DoWalking (); // start with walking
-		StartCoroutine (ChangeAction (3.5f));
+		routine = ChangeAction (3.5f);
+		StartCoroutine (routine);
 	}
 
 	IEnumerator ChangeAction(float waitTime)
 	{
 		yield return new WaitForSeconds(waitTime);
 
-		CurrentBlenderState = (BlenderState)Random.Range(1, 4); // inclusive | exclusive
+		if (!GlobalGameState.IsNPCOnSiren) {
+			CurrentBlenderState = (BlenderState)Random.Range(2, 4); // inclusive | exclusive
 
-		//Debug.Log ("Changed Action: " + CurrentBlenderState);
+			//Debug.Log ("Changed Action: " + CurrentBlenderState);
 
-		switch (CurrentBlenderState) 
-		{
-		case BlenderState.Walking:
-			DoWalking ();
-			break;
-		case BlenderState.Idle:
-			DoResting ();
-			break;
-		case BlenderState.Rotating:
-			DoChangeRotation ();
-			break;
-			/*
+			switch (CurrentBlenderState) 
+			{
+			case BlenderState.Walking:
+				DoWalking ();
+				break;
+			case BlenderState.Idle:
+				DoResting ();
+				break;
+			case BlenderState.Rotating:
+				DoChangeRotation ();
+				break;
+				/*
 		case BlenderState.Eating:
 			DoEating ();
 			break;*/
-		default:
-			break;
-		}
+			default:
+				break;
+			}
 
-		if (CurrentBlenderState != BlenderState.Dead &&
-			CurrentBlenderState != BlenderState.Eating) 
-		{
-			float nextActionDue = Random.Range (1.5f, 4f);
-			StartCoroutine (ChangeAction (nextActionDue));
+			if (CurrentBlenderState != BlenderState.Dead &&
+				CurrentBlenderState != BlenderState.Eating) 
+			{
+				float nextActionDue = Random.Range (1.5f, 4f);
+				routine = ChangeAction (nextActionDue);
+				StartCoroutine (routine);
+			}
 		}
 	}
 
@@ -109,10 +118,23 @@ public class BlenderNPCController : IOGameBehaviour {
 		float randomAngle = Random.Range(0f, 360f);
 		float randomDist = Random.Range (0f, 15f);
 
-		Vector3 blenderDestination = GlobalMapManager.GameDestination.position + new Vector3 (Mathf.Cos (randomAngle) * randomDist, 0f, Mathf.Sin (randomAngle) * randomDist);
+		//Vector3 blenderDestination = GlobalMapManager.GameDestination.position + new Vector3 (Mathf.Cos (randomAngle) * randomDist, 0f, Mathf.Sin (randomAngle) * randomDist);
 
-		navMeshAgent.SetDestination (blenderDestination);
+		//navMeshAgent.SetDestination (blenderDestination);
+
+		GetNewDestination ();
+
 		navMeshAgent.isStopped = false;
+	}
+
+	Vector3 GetNewDestination(){
+
+		float walkRadius = 1000f;
+		Vector3 randomDirection = Random.insideUnitSphere * walkRadius;
+		randomDirection += transform.position;
+		NavMeshHit hit;
+		NavMesh.SamplePosition(randomDirection, out hit, walkRadius, 1);
+		return hit.position;
 	}
 
 	void DoEating(){
@@ -131,6 +153,12 @@ public class BlenderNPCController : IOGameBehaviour {
 
 		blender.Anim.SetBool ("Eat", false);
 	}
+
+	public void RestartNPCAction(){
+		float nextActionDue = Random.Range (4f, 5f);
+		routine = ChangeAction (nextActionDue);
+		StartCoroutine (routine);
+	}
 	
 	void Update () {
 
@@ -141,7 +169,32 @@ public class BlenderNPCController : IOGameBehaviour {
 		if (!GlobalGameState.IsNPCBlenderMaster)
 			return;
 
-		float threshold = navMeshAgent.speed * 0.1f;
+		if (GlobalGameState.IsNPCOnSiren && !IsOneRest) {
+
+			StopCoroutine (routine);
+			routine = null;
+
+			IsOneRest = true;
+
+			float nextActionDue = Random.Range (0.5f, 1.5f);
+			Invoke ("DoResting", nextActionDue);
+
+		} else if (!GlobalGameState.IsNPCOnSiren && IsOneRest) {
+
+			IsOneRest = false;
+
+			RestartNPCAction ();
+
+			float nextActionDue = Random.Range (1.5f, 2.5f);
+			Invoke ("DoWalking", nextActionDue);
+
+		}
+
+		if (Vector3.Distance (navMeshAgent.destination, gameObject.transform.position) < 4f) {
+			navMeshAgent.SetDestination (GetNewDestination ());
+		}
+
+		float threshold = navMeshAgent.speed * 0.086f;
 		if (navMeshAgent.velocity.magnitude < threshold) 
 		{
 			blender.Anim.SetBool ("Walk", false);

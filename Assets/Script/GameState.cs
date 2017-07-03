@@ -19,6 +19,9 @@ public class GameState : IOGameBehaviour {
 	[HideInInspector]
 	public bool IsPlayerReady = false;
 
+	[HideInInspector]
+	public bool IsNPCOnSiren = false;
+
 	[Space(20)]
 	public LoginController LoginUI;
 	public ChatUIController ChatUI;
@@ -28,6 +31,7 @@ public class GameState : IOGameBehaviour {
 	public Text GameTimeUI;
 	public Text LogText;
 	public GameEndUIController GameEndUI;
+	public Image SirenFogUI;
 
 	[Space(20)]
 	public Text ResponseText;
@@ -181,6 +185,9 @@ public class GameState : IOGameBehaviour {
 
 		SocketIOComp.On ("CLIENT:PLAYERSETUP", OnPlayerSetup);
 
+		SocketIOComp.On ("CLIENT:BLENDER_SIREN_ON", OnBlenderSirenOn);
+		SocketIOComp.On ("CLIENT:BLENDER_SIREN_OFF", OnBlenderSirenOff);
+
 	}
 
 	void OnPing(SocketIOEvent evt){ 
@@ -318,9 +325,11 @@ public class GameState : IOGameBehaviour {
 
 			// for blender 3rd person cam
 			GameObject cam = Instantiate(ThirdCam, PlayerBlenderController.CharacterObject.transform.position + ThirdCam.transform.position, ThirdCam.transform.rotation);
+			 
 			ThirdCamComp = cam.GetComponent<ThirdPersonCamera> ();
 			ThirdCamComp.gameObject.SetActive(true);
 			ThirdCamComp.GetComponent<ThirdPersonCamera>().Setup (PlayerBlenderController.CharacterObject.gameObject);
+			ThirdCamComp.BlenderCamStick = PlayerBlenderController.JoystickCam;
 		}
 		else if (PlayType == CharacterType.Killer)
 		{
@@ -366,6 +375,34 @@ public class GameState : IOGameBehaviour {
 			killer.Rb.useGravity = false;
 			Killers.Add(killer);
 		}
+	}
+
+	private void OnBlenderSirenOn(SocketIOEvent evt){
+
+		// make fog effects on
+		Color clr1 = SirenFogUI.color;
+		Color clr2 = SirenFogUI.color;
+		clr2.a = 0.7f;
+		LeanTween.value (SirenFogUI.gameObject, clr1, clr2, 1f).setOnUpdate ((Color val) => {
+			SirenFogUI.color = val;
+		}).setEaseOutCubic();
+
+		if (GlobalGameState.IsNPCBlenderMaster) 
+			IsNPCOnSiren = true;
+	}
+
+	private void OnBlenderSirenOff(SocketIOEvent evt){
+
+		// make fog effects off
+		Color clr1 = SirenFogUI.color;
+		Color clr2 = SirenFogUI.color;
+		clr2.a = 0.0f;
+		LeanTween.value (SirenFogUI.gameObject, clr1, clr2, 1f).setOnUpdate ((Color val) => {
+			SirenFogUI.color = val;
+		}).setEaseInCubic();
+
+		if (GlobalGameState.IsNPCBlenderMaster)
+			IsNPCOnSiren = false;
 	}
 
 	private void OnBlenderNPCCreate(SocketIOEvent evt){
