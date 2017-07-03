@@ -33,6 +33,8 @@ public class GameState : IOGameBehaviour {
 	public GameEndUIController GameEndUI;
 	public Image SirenFogUI;
 
+	private System.DateTime PausedTime;
+
 	[Space(20)]
 	public Text ResponseText;
 	public Text ChannelText;
@@ -83,6 +85,18 @@ public class GameState : IOGameBehaviour {
 	float lastpongtime = 0f;
 	bool pingdone = false;
 
+	void OnApplicationFocus(bool hasFocus)
+	{
+		if (PausedTime != null && (System.DateTime.Now - PausedTime).Seconds >= 10f)
+			LeaveRoom ();
+			
+	}
+
+	void OnApplicationPause(bool pauseStatus)
+	{
+		PausedTime = System.DateTime.Now;
+	}
+
 	public void HideAllUI(){
 		ChatUI.Hide ();
 		LoginUI.Hide ();
@@ -127,7 +141,7 @@ public class GameState : IOGameBehaviour {
 
 			DialogueUI.Show ();
 
-			Disconnect ();
+			DisconnectClearStuffs ();
 		}
 
 		if (pingdone)
@@ -231,7 +245,7 @@ public class GameState : IOGameBehaviour {
 		Debug.Log ("Connected room as " + evt.data);
 
 		HideAllUI ();
-		GameUI.Show ();
+		GameUI.ShowWithOption (GameUIController.GameUIState.Lobby);
 		ChatUI.Show ();
 		LobbyUI.Show ();
 
@@ -265,16 +279,16 @@ public class GameState : IOGameBehaviour {
 		if (gameState == GameStateEnum.Spectate) {
 			HideAllUI ();
 			LobbyUI.Show ();
-			GameUI.Show ();
+			GameUI.ShowWithOption (GameUIController.GameUIState.Lobby);
 			OnSpectateChangeCamera (gameState);
 		} else if (gameState == GameStateEnum.IsWaitingForGameStart) {
 			HideAllUI ();
 			LobbyUI.Show ();
-			GameUI.Show ();
+			GameUI.ShowWithOption (GameUIController.GameUIState.Lobby);
 			OnSpectateChangeCamera (gameState);
 		} else if (gameState == GameStateEnum.IsPlaying) {
 			HideAllUI ();
-			GameUI.Show ();
+			GameUI.ShowWithOption (GameUIController.GameUIState.InGame);
 			ChatUI.Show ();
 
 			OnSpectateChangeCamera (gameState);
@@ -601,19 +615,19 @@ public class GameState : IOGameBehaviour {
 
 	public void ClearAllPlayers(){
 
-		Debug.Log("deleting all killers:" + Killers.Count);
+		//Debug.Log("deleting all killers:" + Killers.Count);
 		foreach (Killer player in Killers) {
 			if (player)
 				Destroy (player.gameObject);
 		}
 
-		Debug.Log("deleting all blenders" + Blenders.Count);
+		//Debug.Log("deleting all blenders" + Blenders.Count);
 		foreach (Blender player in Blenders) {
 			if (player)
 				Destroy (player.gameObject);
 		}
 			
-		Debug.Log("deleting all blender NPC" + BlenderNPCs.Count);
+		//Debug.Log("deleting all blender NPC" + BlenderNPCs.Count);
 		foreach (Blender blender in BlenderNPCs) {
 			if (blender)
 				Destroy (blender.gameObject);
@@ -640,7 +654,7 @@ public class GameState : IOGameBehaviour {
 		Destroy (CurrentScene);	
 	}
 
-	public void Disconnect(){
+	public void DisconnectClearStuffs(){
 		ClearScene ();
 	}
 
@@ -679,6 +693,19 @@ public class GameState : IOGameBehaviour {
 		}
 	}
 
+	public void LeaveRoom(){
+		SocketIOComp.Emit ("SERVER:LEAVE");
+
+		//GlobalGameState.Disconnect ();
+		GlobalGameState.HandleLeaveGame();
+		GlobalGameState.HideAllUI ();
+
+		GlobalGameState.LoginUI.Show ();
+
+		// set spectate cam on!
+		GlobalGameState.SpectateCam.gameObject.SetActive (false);
+	}
+
 	public void LeaveGame(bool IsByPlayerWill){
 
 		SocketIOComp.Emit ("SERVER:LEAVE_GAME");
@@ -690,7 +717,7 @@ public class GameState : IOGameBehaviour {
 		if (IsByPlayerWill)
 			GlobalGameState.LobbyUI.ResetLobbyState ();
 		GlobalGameState.LobbyUI.Show ();
-		GlobalGameState.GameUI.Show ();
+		GlobalGameState.GameUI.ShowWithOption (GameUIController.GameUIState.Lobby);
 
 		// set spectate cam on!
 		GlobalGameState.SpectateCam.gameObject.SetActive (true);

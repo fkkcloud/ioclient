@@ -8,6 +8,7 @@ public class LobbyUIController : UIController {
 
 	public Button JoinGameBtn;
 	public Button LeaveGameBtn;
+	public Button LeaveRoomBrn;
 
 
 	// Use this for initialization
