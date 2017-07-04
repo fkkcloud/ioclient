@@ -84,12 +84,29 @@ public class GameState : IOGameBehaviour {
 	float pongtime = 0f;
 	float lastpongtime = 0f;
 	bool pingdone = false;
+	IEnumerator pingRoutine;
 
 	void OnApplicationFocus(bool hasFocus)
 	{
-		if (PausedTime != null && (System.DateTime.Now - PausedTime).Seconds >= 10f)
-			LeaveRoom ();
-			
+		if (PausedTime != null && (System.DateTime.Now - PausedTime).Seconds >= 10f) {
+			DisconnectBehaviour ();
+		}
+	}
+
+	void DisconnectBehaviour(){
+		LeaveRoom ();
+		DisconnectClearStuffs ();
+
+		ServerConnected = false;
+
+		HideAllUI ();
+		DialogueUI.Show (DialogueUIController.DialogueTypes.ConnectingServer);
+
+		SocketIOComp.Connect ();
+		StartCoroutine (Connection ());
+
+		StopCoroutine (pingRoutine);
+		StartCoroutine (pingRoutine);
 	}
 
 	void OnApplicationPause(bool pauseStatus)
@@ -115,7 +132,7 @@ public class GameState : IOGameBehaviour {
 
 
 		HideAllUI ();
-		DialogueUI.Show ();
+		DialogueUI.Show (DialogueUIController.DialogueTypes.ConnectingServer);
 
 		//SocketIOComp.url = "ws://safe-bastion-63386.herokuapp.com:80/socket.io/?EIO=4&transport=websocket";
 		//SocketIOComp.url = "ws://127.0.0.1:3000/socket.io/?EIO=4&transport=websocket";
@@ -124,7 +141,8 @@ public class GameState : IOGameBehaviour {
 		StartCoroutine (Connection ());
 
 		//ping
-		StartCoroutine (PingUpdate ());
+		pingRoutine = PingUpdate();
+		StartCoroutine (pingRoutine);
 	}
 
 	IEnumerator PingUpdate()
@@ -137,11 +155,7 @@ public class GameState : IOGameBehaviour {
 		// check server is connected
 		float lastpongduration = Mathf.Abs (Time.timeSinceLevelLoad - lastpongtime);
 		if (lastpongduration > 4f) {
-			ServerConnected = false;
-
-			DialogueUI.Show ();
-
-			DisconnectClearStuffs ();
+			DisconnectBehaviour ();
 		}
 
 		if (pingdone)
